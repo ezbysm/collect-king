@@ -225,9 +225,9 @@ function decideEnding(s) {
 function decideRomance(s) {
   const c = s.flags.gradChoice;
   const L = s.love;
-  if (c === 'confess' && L >= 75) return 'together';
-  if ((c === 'confess' || c === 'letter') && L >= 50) return 'letter';
-  if (L >= 30) return 'reunion';
+  if (c === 'confess' && L >= 90) return 'together';
+  if ((c === 'confess' || c === 'letter') && L >= 60) return 'letter';
+  if (L >= 35) return 'reunion';
   return 'memory';
 }
 

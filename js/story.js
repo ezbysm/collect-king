@@ -370,11 +370,11 @@ const Story = (() => {
     ]);
     st.flags.gradChoice = c;
     if (c === 'confess') {
-      if (st.love >= 75) await talk([['her', '…바보. 나도야. 그걸 이제 말하면 어떡해.', 'blush'], '그 애가 웃으면서 울었다. 나도 그랬던 것 같다.']);
-      else if (st.love >= 50) await talk([['her', '…고마워. 근데 나, 아직 잘 모르겠어. 우리 계속 연락하자. 응?', 'sad']]);
+      if (st.love >= 90) await talk([['her', '…바보. 나도야. 그걸 이제 말하면 어떡해.', 'blush'], '그 애가 웃으면서 울었다. 나도 그랬던 것 같다.']);
+      else if (st.love >= 60) await talk([['her', '…고마워. 근데 나, 아직 잘 모르겠어. 우리 계속 연락하자. 응?', 'sad']]);
       else await talk([['her', '아… 미안. 나는 너를 좋은 친구라고 생각했어.', 'sad'], '봄바람이 차가웠다.']);
     } else if (c === 'letter') {
-      await talk(st.love >= 50
+      await talk(st.love >= 60
         ? [['her', '편지? …집에 가서 읽을게. 나도 답장 쓸게. 꼭.', 'blush']]
         : [['her', '아, 고마워. 잘 읽을게.', 'smile']]);
     } else {
