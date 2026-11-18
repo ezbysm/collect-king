@@ -59,6 +59,8 @@ const Story = (() => {
       '물론 안다. 그래도 하드디스크에서 3기가쯤은… 내 몫이다.',
     ]);
     s().screen = 'desktop';
+    Sound.sfx('startup');
+    setTimeout(() => Sound.sfx('modem'), 1800);
     await talk([
       '삐- 삐리리리- 치이이익-.',
       '모뎀이 전화선을 타고 세상에 접속하는 소리. 그 소리를 들을 때마다 가슴이 뛰었다.',
@@ -81,6 +83,7 @@ const Story = (() => {
     if (d.m === 1 && t > 0) {
       const gift = 30000 + (d.y - 2001) * 5000;
       st.money += gift;
+      Sound.sfx('coin');
       await talk([`${d.y}년 설날. 친척들에게 받은 세뱃돈이 ${won(gift)}.`, ['mom', '반은 엄마가 맡아 둘게.', 'smile'], '…그 반은 어디로 가는 걸까. 영원한 수수께끼다.']);
     }
 
@@ -105,6 +108,7 @@ const Story = (() => {
         'CD-RW 드라이브! 이제 하드에 쌓인 파일을 CD에 구워 보관할 수 있다.',
       ]);
       st.pc.burner = true; st.blank += 5;
+      Sound.sfx('item');
       await UI.notice('새 장비', ['CD-RW 드라이브가 설치되었다.', '공CD 5장을 덤으로 받았다.', '이제 일정에서 "CD 굽기"를 고를 수 있습니다. 구운 파일은 하드에서 빠지고 안전하게 보관됩니다.']);
     }
 
@@ -117,6 +121,7 @@ const Story = (() => {
         '더 이상 삐- 삐리리- 하는 소리는 들리지 않았다. …조금, 아주 조금 서운했다.',
       ]);
       st.net = 'adsl'; st.pc.line = 90;
+      Sound.sfx('startup');
       await UI.notice('초고속 인터넷', ['인터넷이 ADSL로 바뀌었다.', `다운로드 한 번에 받을 수 있는 양: ${mb(SPEED.modem)} → ${mb(SPEED.adsl)}`]);
     }
 
@@ -140,6 +145,7 @@ const Story = (() => {
         '평판 스캐너. 만화책을 한 장 한 장 스캔하면… 내 손으로 만든 파일이 된다.',
       ]);
       st.pc.scanner = true;
+      Sound.sfx('item');
       await UI.notice('새 장비', ['평판 스캐너가 생겼다.', '이제 일정에서 "만화책 사서 스캔"을 고를 수 있습니다.']);
     }
 
@@ -155,6 +161,7 @@ const Story = (() => {
         '40기가. 숫자를 듣는 것만으로 숨이 막혔다.',
       ]);
       st.hddCap = 30000; st.pc.frag = 0;
+      Sound.sfx('startup');
       await UI.notice('PC 업그레이드', ['하드디스크가 40GB로 바뀌었다. (내 몫 약 30GB)', '디스크 조각화도 깨끗해졌다.']);
     }
   }
@@ -477,6 +484,7 @@ const Story = (() => {
     const tr = computeTraits(st);
     Meta.addEnding(eKey, rKey);
     UI.setScene('future');
+    Sound.bgm('ending');
     st.screen = 'desktop';
     await talk(['그리고 시간이 흘렀다.']);
     await UI.notice('성향 결과', [

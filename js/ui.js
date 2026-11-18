@@ -29,6 +29,15 @@ const UI = (() => {
     sctx = scene.getContext('2d');
     window.addEventListener('resize', fitScene);
     fitScene();
+    // 모바일은 첫 터치 후에 소리를 낼 수 있다
+    const unlock = () => Sound.unlock();
+    document.addEventListener('pointerdown', unlock);
+    document.addEventListener('keydown', unlock);
+    document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#mute')) Sound.sfx('click'); });
+    const muteBtn = document.getElementById('mute');
+    const paintMute = () => { muteBtn.textContent = Sound.isMuted() ? '♪ 꺼짐' : '♪ 켜짐'; muteBtn.classList.toggle('off', Sound.isMuted()); };
+    muteBtn.addEventListener('click', () => { Sound.unlock(); Sound.setMuted(!Sound.isMuted()); paintMute(); });
+    paintMute();
     document.addEventListener('keydown', e => {
       if ((e.key === 'Enter' || e.key === ' ') && advanceKey) { e.preventDefault(); advanceKey(); }
     });
@@ -87,6 +96,7 @@ const UI = (() => {
 
   function say(who, text, expr = 'normal') {
     lastLine = { who, text, expr };
+    if (who === 'her') Sound.bgm('her');
     return new Promise(resolve => {
       const c = CAST[who] || {};
       const box = h('div', { class: 'dialog' + (c.face ? ' has-face' : '') + (who === 'narr' ? ' narr' : '') });
@@ -105,6 +115,7 @@ const UI = (() => {
       const timer = setInterval(() => {
         i += 1;
         tEl.textContent = text.slice(0, i);
+        if (text[i - 1] && text[i - 1] !== ' ' && i % 2) Sound.sfx('blip');
         if (i >= text.length) { clearInterval(timer); done = true; }
       }, 22);
       const adv = () => {
@@ -162,6 +173,7 @@ const UI = (() => {
   }
 
   function notice(title, lines, btnLabel = '확인') {
+    Sound.sfx('notice');
     return new Promise(resolve => {
       const body = h('div', { class: 'notice' }, ...lines.map(l => (typeof l === 'string' ? h('p', {}, l) : l)));
       const ok = h('button', { class: 'btn primary', onclick: () => { advanceKey = null; resolve(); } }, btnLabel);
@@ -190,6 +202,7 @@ const UI = (() => {
   }
 
   function runDefrag(frag, ms = 2600) {
+    Sound.sfx('hdd', ms / 1000);
     return new Promise(resolve => {
       defragState = { df: Art.makeDefrag(frag), p: 0 };
       const prev = sceneMode;

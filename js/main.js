@@ -52,6 +52,7 @@ async function boot() {
 
 function title() {
   G.s = null;
+  Sound.bgm('title');
   UI.setScene('title');
   UI.updateStatus();
   const m = Meta.data;
@@ -150,6 +151,7 @@ function allowance(s) {
 
 // ---------- 허브 ----------
 function hub() {
+  Sound.bgm('room');
   return new Promise(resolve => {
     const s = G.s;
     UI.setScene('room');
@@ -237,6 +239,7 @@ async function runActivity(key, idx) {
     case 'friend': return actFriend(label);
     case 'chores':
       s.money += 6000; s.mom = clamp(s.mom + 10);
+      Sound.sfx('coin');
       return UI.notice(`${label} · 심부름·집안일`, [pick(['설거지를 하고 분리수거를 했다.', '슈퍼에 두부 심부름을 다녀왔다. 거스름돈은 내 것.', '베란다 청소를 했다. 먼지가 엄청났다.']), `용돈 +${won(6000)} · 엄마 인내심 회복`]);
     case 'study':
       s.mom = clamp(s.mom + 14);
@@ -281,8 +284,10 @@ async function actDownload(label) {
 
   s.screen = 'download';
   const speedTxt = s.net === 'modem' ? '4.8KB/s' : '180KB/s';
+  if (s.net === 'modem') Sound.sfx('modem', true);
   await UI.progress('다운로드 중…', `${ids.map(id => WORK_BY_ID[id].title).join(', ')} · ${speedTxt}`, 1600, '받기 완료');
   const r = doDownload(s, ids, budget);
+  Sound.sfx('done');
   s.pc.frag = clamp(s.pc.frag + (s.net === 'adsl' ? 9 : 5));
   s.pc.line = clamp(s.pc.line - (s.net === 'modem' ? 6 : 4));
   s.mom = clamp(s.mom - 9);
@@ -303,6 +308,7 @@ async function actDownload(label) {
 }
 
 async function evMomShutdown(budget, notes) {
+  Sound.sfx('thump');
   const s = G.s;
   const tr = computeTraits(s);
   s.screen = 'off';
@@ -311,6 +317,7 @@ async function evMomShutdown(budget, notes) {
     ['mom', `${G.s.name}! 지금 몇 시야! 당장 꺼!`, 'angry'],
     '딸깍. 엄마가 멀티탭 스위치를 내렸다.',
   ]);
+  Sound.sfx('off');
   const opts = [
     { label: '사과하고 잔다', value: 'sorry', note: '오늘 받은 것까지만. 엄마 인내심 회복' },
     { label: '엄마가 잠들면 몰래 다시 켠다', value: 'sneak', note: '대부분 받지만 들키면 큰일' },
@@ -332,6 +339,7 @@ async function evMomShutdown(budget, notes) {
 }
 
 async function evDisconnect(budget, notes) {
+  Sound.sfx('error');
   const s = G.s;
   const tr = computeTraits(s);
   s.screen = 'desktop';
@@ -357,6 +365,7 @@ async function evDisconnect(budget, notes) {
 }
 
 async function evVirus() {
+  Sound.sfx('alarm');
   const s = G.s;
   s.screen = 'desktop';
   await UI.talk(['다음 날 아침, 컴퓨터를 켜자 화면에 이상한 창이 수십 개 떴다.', '…바이러스다.']);
@@ -394,6 +403,7 @@ async function actBurn(label) {
   s.screen = 'burn';
   const maxDiscs = 6;
   const plannedMB = Math.min(hddUsed(s) - partsMB(s), Math.min(s.blank, maxDiscs) * CD_MB);
+  Sound.sfx('tray'); Sound.sfx('burn');
   await UI.progress('CD 굽기', `공CD에 굽는 중… (최대 ${Math.min(s.blank, maxDiscs)}장)`, 1600, '굽기 완료');
   // 드라이브 손상 위험
   const breakP = s.pc.drive < 55 ? (60 - s.pc.drive) / 70 : 0.02;
@@ -413,6 +423,7 @@ async function actBurn(label) {
 }
 
 async function evDriveBroken() {
+  Sound.sfx('error');
   const s = G.s;
   const tr = computeTraits(s);
   s.pc.driveBroken = true;
@@ -453,6 +464,7 @@ async function actScan(label) {
   const n = await UI.choose(`「${w.title}」 몇 권을 살까? (한 번에 최대 6권 스캔)`, opts);
   s.money -= n * MANGA_PRICE;
   s.screen = 'desktop';
+  Sound.sfx('scanner');
   await UI.progress('스캔 중…', `「${w.title}」 한 장, 한 장… (300dpi)`, 1800, '스캔 완료');
   addUnits(s, w, n, 'hdd', 'scan');
   s.pc.frag = clamp(s.pc.frag + 3);
@@ -492,11 +504,13 @@ async function actYongsan(label) {
       s.money -= 6000;
       const w = pick(usedPool);
       const n = receiveDisc(s, w, 'trade');
+      Sound.sfx('item');
       await UI.talk([['owner', '이건 덤이야. 잘 돌아갈 거야, 아마.', 'smile'], `중고 CD에는 「${w.title}」이 들어 있었다! (+${n}${TYPES[w.type].unit})`]);
       continue;
     }
     const it = SHOP.find(x => x.id === c);
     s.money -= it.price;
+    Sound.sfx('coin');
     if (c === 'cd10') s.blank += 10;
     if (c === 'cd30') s.blank += 30;
     if (c === 'lens') s.pc.drive = clamp(s.pc.drive + 30);
@@ -533,6 +547,7 @@ async function actClub(label) {
   if (!ids || !ids.length) return;
   const w = WORK_BY_ID[ids[0]];
   const n = receiveDisc(s, w, 'trade');
+  Sound.sfx('item');
   const mine = ownedWorks(s).length;
   if (mine > 1) s.method.share += 3;
   await UI.notice(`${label} · 교환 결과`, [
