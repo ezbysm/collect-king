@@ -141,12 +141,9 @@ const Story = (() => {
     // 스캐너
     if (t === 13 && !st.pc.scanner) {
       await talk([
-        ['dad', '회사에서 쓰던 스캐너를 바꾼다길래 하나 얻어 왔다. 숙제할 때 써라.', 'smile'],
-        '평판 스캐너. 만화책을 한 장 한 장 스캔하면… 내 손으로 만든 파일이 된다.',
+        ['hyung', '만화책 직접 스캔해서 올리는 사람들 있잖아. 그게 진짜 고수야. 용산 가면 중고 스캐너 4만 5천 원이면 산다.', 'smile'],
+        '내 손으로 만든 파일. …용돈을 모아야겠다.',
       ]);
-      st.pc.scanner = true;
-      Sound.sfx('item');
-      await UI.notice('새 장비', ['평판 스캐너가 생겼다.', '이제 일정에서 "만화책 사서 스캔"을 고를 수 있습니다.']);
     }
 
     // USB 메모리 등장
@@ -156,13 +153,20 @@ const Story = (() => {
 
     // PC 업그레이드
     if (t === 30) {
-      await talk([
-        ['dad', '하드가 꽉 찼다며? 고입 준비도 해야 하니까… 40기가짜리로 바꿔 주마.', 'smile'],
-        '40기가. 숫자를 듣는 것만으로 숨이 막혔다.',
-      ]);
-      st.hddCap = 30000; st.pc.frag = 0;
-      Sound.sfx('startup');
-      await UI.notice('PC 업그레이드', ['하드디스크가 40GB로 바뀌었다. (내 몫 약 30GB)', '디스크 조각화도 깨끗해졌다.']);
+      if (st.pc.hdd40) {
+        await talk([['dad', '하드 바꿔 주려고 했더니 벌써 네 돈으로 달았다며? …이건 용돈에 보태라.', 'smile']]);
+        st.money += 20000; Sound.sfx('coin');
+      } else if (st.mom >= 60) {
+        await talk([
+          ['dad', '요즘 엄마 말도 잘 듣는다며. 고입 준비도 해야 하니까… 40기가 하드 하나 달아 주마.', 'smile'],
+          '40기가. 숫자를 듣는 것만으로 숨이 막혔다.',
+        ]);
+        st.pc.hdd40 = true; st.hddCap += 25000; st.pc.frag = 0;
+        Sound.sfx('startup');
+        await UI.notice('PC 업그레이드', ['40GB 하드디스크가 추가되었다. (내 몫 +25GB)', '디스크 조각화도 깨끗해졌다.']);
+      } else {
+        await talk([['dad', '하드를 바꿔 줄까 했는데… 엄마가 요즘 너 컴퓨터만 한다더라. 필요하면 네 돈으로 사.', 'angry'], '용산에서 40GB 하드가 11만 원이라던데.']);
+      }
     }
   }
 
@@ -287,10 +291,24 @@ const Story = (() => {
     }
 
     if (t === 21) { // 2001 크리스마스
+      if (st.love >= 35) {
+        await talk([['her', '이번에 해리 포터 영화 개봉했대. …보러 갈 사람?', 'blush']]);
+        const c = await UI.choose('', [
+          { label: '"내가 표 살게. 같이 가자."', value: 'go', note: `영화표 두 장과 팝콘 ${won(14000)}`, disabled: st.money < 14000 },
+          { label: '"비디오 나오면 같이 보자."', value: 'later' },
+        ]);
+        if (c === 'go') { st.money -= 14000; love(10); Sound.sfx('coin'); await talk(['종로의 극장. 팝콘 한 통을 나눠 먹었다.', ['her', '나중에 이거 파일 생기면 나도 줘. 또 볼래.', 'smile']]); }
+        else { love(2); await talk([['her', '…응, 그래.', 'sad']]); }
+      }
       if (st.love >= 40) {
         await talk(['12월 24일. 사물함에 작은 봉투가 들어 있었다.', ['her', '(카드) 올해도 고마웠어. 내년에도 재밌는 거 알려 줘. -' + HG(), 'blush']]);
-        const c = await UI.choose('', [{ label: '답장을 쓴다', value: 'reply' }, { label: '고맙다고 말로 한다', value: 'say' }]);
-        love(c === 'reply' ? 7 : 4);
+        const c = await UI.choose('', [
+          { label: '작은 선물과 함께 답장을 쓴다', value: 'gift', note: `문구점 선물 ${won(8000)}`, disabled: st.money < 8000 },
+          { label: '답장을 쓴다', value: 'reply' },
+          { label: '고맙다고 말로 한다', value: 'say' },
+        ]);
+        if (c === 'gift') st.money -= 8000;
+        love(c === 'gift' ? 10 : c === 'reply' ? 7 : 4);
       } else {
         await talk(['12월 24일. 거리마다 캐럴이 흘렀다. 나는 방에서 받은 파일들을 정리했다.']);
       }
@@ -307,8 +325,18 @@ const Story = (() => {
 
     if (t === 26) { // 중3 1학기 — 생일
       await talk([['friend', `야, 다음 주 ${HG()} 생일이래. 너 알고 있었냐?`, 'surprise'], '알고 있었다. 달력에 몰래 표시까지 해 두었으니까.']);
-      const g = await giveFromCollection('생일 선물', '무엇을 담아서 선물할까?');
-      if (!g) { love(2); await talk(['결국 문방구에서 산 볼펜 한 자루를 건넸다.', ['her', '고마워. 잘 쓸게.', 'smile']]); }
+      const how = await UI.choose('생일 선물은…', [
+        { label: '내 컬렉션에서 골라 담아 준다', value: 'col' },
+        { label: '선물 가게에서 산다', value: 'buy', note: `오르골 ${won(15000)}`, disabled: st.money < 15000 },
+        { label: '둘 다', value: 'both', note: `오르골 ${won(15000)} + 컬렉션`, disabled: st.money < 15000 },
+      ]);
+      if (how === 'buy' || how === 'both') {
+        st.money -= 15000; love(8); Sound.sfx('coin');
+        await talk(['오르골을 샀다. 태엽을 감으면 그 시절 유행하던 노래가 흘러나왔다.', ['her', '…예쁘다. 고마워.', 'blush']]);
+      }
+      const g = how === 'buy' ? null : await giveFromCollection('생일 선물', '무엇을 담아서 선물할까?');
+      if (how === 'buy') { /* 오르골만 */ }
+      else if (!g && how === 'col') { love(2); await talk(['결국 문방구에서 산 볼펜 한 자루를 건넸다.', ['her', '고마워. 잘 쓸게.', 'smile']]); }
       else {
         love((g.liked ? 15 : 7) + (g.usb ? 4 : 0));
         await talk([
@@ -326,8 +354,16 @@ const Story = (() => {
         { label: '집에서 경기 보면서 다운로드를 돌린다', value: 'home' },
       ]);
       if (c === 'her') {
-        love(st.love >= 40 ? 13 : 6);
-        await talk(st.love >= 40
+        const ok = st.love >= 40;
+        love(ok ? 13 : 6);
+        if (ok && st.money >= 10000) {
+          const t2 = await UI.choose('…좋아. 빨간 티 있어?', [
+            { label: '"Be the Reds" 티셔츠를 두 장 산다', value: 'buy', note: won(10000) },
+            { label: '각자 집에 있는 빨간 옷을 입는다', value: 'no' },
+          ], 'her', 'blush');
+          if (t2 === 'buy') { st.money -= 10000; love(4); Sound.sfx('coin'); }
+        }
+        await talk(ok
           ? [['her', '…좋아. 빨간 티 입고 갈게.', 'blush'], '골이 들어간 순간, 모르는 사람들과 얼싸안았다. 그리고 그 애와도.', '그해 여름은, 평생 잊지 못할 것이다.']
           : [['her', '아… 나 친구들이랑 약속이 있어서. 미안.', 'sad'], '광장에서 멀리, 그 애의 빨간 티를 본 것 같았다.']);
       } else if (c === 'friends') { friend(15); await talk(['목이 쉬도록 소리 질렀다. 태식이는 집에 가는 버스에서 울었다.']); }
@@ -363,6 +399,14 @@ const Story = (() => {
     const st = s();
     UI.setScene('room');
     st.screen = 'off';
+    await talk(['2003년 2월. 졸업식 날 아침. 학교 가는 길에 꽃집이 문을 열고 있었다.']);
+    if (st.money >= 10000) {
+      const f = await UI.choose(`가진 돈 ${won(st.money)}`, [
+        { label: '작은 꽃다발을 산다', value: 'y', note: won(10000) },
+        { label: '그냥 간다', value: 'n' },
+      ]);
+      if (f === 'y') { st.money -= 10000; love(4); Sound.sfx('coin'); await talk(['프리지어 한 다발. 노란색이 그 애한테 어울릴 것 같았다.']); }
+    }
     await talk([
       '2003년 2월. 졸업식.',
       '교복 위로 밀가루가 날렸고, 누군가는 울었고, 누군가는 웃었다.',

@@ -8,13 +8,13 @@ const EXAM_MONTHS = [4, 7, 10, 12];
 const ACTIVITIES = {
   download: { name: '밤새 다운로드', icon: '⇩', desc: '작품을 골라 인터넷 속도만큼 받는다.' },
   burn:     { name: 'CD 굽기', icon: '◎', desc: '하드의 파일을 CD로 옮겨 안전하게 보관.' },
-  scan:     { name: '만화책 사서 스캔', icon: '▤', desc: `한 권 ${won(MANGA_PRICE)}. 직접 만든 파일.` },
+  scan:     { name: '만화책 사서 스캔', icon: '▤', desc: `한 권 ${won(MANGA_PRICE)}. 스캐너 필요.` },
   pc:       { name: '컴퓨터 정비', icon: '⚙', desc: '조각 모음, 스캔디스크, 회선 점검.' },
-  yongsan:  { name: '용산 원정', icon: '⌂', desc: '공CD, 부품, 수리, 중고 CD.' },
-  club:     { name: '동호회 활동', icon: '☺', desc: '파일을 교환한다. CD로 받는다.' },
-  friend:   { name: '친구와 놀기', icon: '♪', desc: 'PC방, 오락실. 가끔 CD를 주고받는다.' },
+  yongsan:  { name: '용산 원정', icon: '⌂', desc: `차비 ${won(PRICES.yongsan)}. 공CD·부품·하드·중고 CD.` },
+  club:     { name: '동호회 활동', icon: '☺', desc: `CD를 우편 교환. 공CD 1장+우표 ${won(PRICES.club)}.` },
+  friend:   { name: '친구와 놀기', icon: '♪', desc: `PC방·떡볶이 ${won(PRICES.friend)}. CD를 주고받기도.` },
   chores:   { name: '심부름·집안일', icon: '₩', desc: '용돈 +6,000, 엄마 인내심 회복.' },
-  study:    { name: '공부', icon: '✎', desc: '엄마 인내심 크게 회복.' },
+  study:    { name: '공부', icon: '✎', desc: '엄마 인내심 회복. 시험 성적→용돈.' },
   rest:     { name: '일찍 자기', icon: '☾', desc: '엄마 인내심 회복. 다운로드는 쉰다.' },
 };
 
@@ -37,6 +37,11 @@ function activityState(s, key) {
       if (s.money < MANGA_PRICE) return '돈이 없다';
       return null;
     case 'pc': return banned ? '컴퓨터 금지령' : null;
+    case 'yongsan': return s.money < PRICES.yongsan ? '차비가 없다' : null;
+    case 'club':
+      if (s.blank <= 0) return '보낼 공CD가 없다';
+      if (s.money < PRICES.club) return '우표값이 없다';
+      return null;
     default: return null;
   }
 }
@@ -116,7 +121,9 @@ async function gameLoop() {
   const s = G.s;
   while (s.turn < TOTAL_TURNS) {
     if (s.startDone !== s.turn) {
-      s.money += allowance(s);
+      s.monthStudy = 0;
+      s.lastAllowance = allowance(s);
+      s.money += s.lastAllowance;
       s.screen = 'desktop';
       await Story.monthStart();
       s.startDone = s.turn;
@@ -146,7 +153,8 @@ async function gameLoop() {
 
 function allowance(s) {
   const y = dateOf(s.turn).y;
-  return y === 2000 ? 10000 : y === 2001 ? 12000 : 15000;
+  const base = y === 2000 ? 10000 : y === 2001 ? 12000 : 15000;
+  return Math.max(0, base + (s.allowanceMod || 0));
 }
 
 // ---------- 허브 ----------
@@ -164,6 +172,7 @@ function hub() {
           h('div', {}, h('b', {}, `${d.y}년 ${d.m}월`), ` · 중학교 ${d.grade}학년`, EXAM_MONTHS.includes(d.m) ? h('em', { class: 'exam' }, '시험 기간') : null),
           h('div', { class: 'dim' }, `성향: ${traitLabel(tr)}`),
           h('div', { class: 'dim' }, `인터넷: ${s.net === 'adsl' ? 'ADSL' : '56k 모뎀'} · 남은 하드 ${mb(hddFree(s))}`),
+          h('div', { class: 'dim' }, `이번 달 용돈 +${won(s.lastAllowance || allowance(s))}${s.allowanceMod > 0 ? ' (성적 보너스 포함)' : s.allowanceMod < 0 ? ' (성적 때문에 깎임)' : ''} · 공CD 장당 ${won(cdPrice(s.turn))}`),
           s.banTurn === s.turn ? h('div', { class: 'warn-text' }, '이번 달은 컴퓨터 금지령!') : null,
         ),
         h('button', { class: 'btn big primary', onclick: async () => { const p = await planMonth(); if (p) resolve(p); else render(); } }, '이번 달 계획'),
@@ -243,6 +252,7 @@ async function runActivity(key, idx) {
       return UI.notice(`${label} · 심부름·집안일`, [pick(['설거지를 하고 분리수거를 했다.', '슈퍼에 두부 심부름을 다녀왔다. 거스름돈은 내 것.', '베란다 청소를 했다. 먼지가 엄청났다.']), `용돈 +${won(6000)} · 엄마 인내심 회복`]);
     case 'study':
       s.mom = clamp(s.mom + 14);
+      s.monthStudy = (s.monthStudy || 0) + 1;
       return UI.notice(`${label} · 공부`, [pick(['문제집을 풀었다. 수학은 여전히 어렵다.', '영어 단어를 외웠다. 다음 날 반은 잊었다.', '독서실에 갔다. 반은 잤다.']), '엄마 인내심이 크게 회복되었다.']);
     case 'rest':
       s.mom = clamp(s.mom + 9); s.pc.line = clamp(s.pc.line + 3);
@@ -284,7 +294,7 @@ async function actDownload(label) {
 
   s.screen = 'download';
   const speedTxt = s.net === 'modem' ? '4.8KB/s' : '180KB/s';
-  if (s.net === 'modem') Sound.sfx('modem', true);
+  if (s.net === 'modem') { Sound.sfx('modem', true); s.phoneNights = (s.phoneNights || 0) + 1; }
   await UI.progress('다운로드 중…', `${ids.map(id => WORK_BY_ID[id].title).join(', ')} · ${speedTxt}`, 1600, '받기 완료');
   const r = doDownload(s, ids, budget);
   Sound.sfx('done');
@@ -401,7 +411,7 @@ async function evVirus() {
 async function actBurn(label) {
   const s = G.s;
   s.screen = 'burn';
-  const maxDiscs = 6;
+  const maxDiscs = s.pc.fastBurner ? 10 : 6;
   const plannedMB = Math.min(hddUsed(s) - partsMB(s), Math.min(s.blank, maxDiscs) * CD_MB);
   Sound.sfx('tray'); Sound.sfx('burn');
   await UI.progress('CD 굽기', `공CD에 굽는 중… (최대 ${Math.min(s.blank, maxDiscs)}장)`, 1600, '굽기 완료');
@@ -411,7 +421,7 @@ async function actBurn(label) {
   let broke = false;
   if (chance(breakP)) { broke = true; limit = Math.max(0, Math.floor(Math.min(s.blank, maxDiscs) / 2)); }
   const r = doBurn(s, limit);
-  s.pc.drive = clamp(s.pc.drive - 6 - r.used * 3);
+  s.pc.drive = clamp(s.pc.drive - (s.pc.fastBurner ? 3 + r.used : 6 + r.used * 3));
   s.pc.frag = clamp(s.pc.frag + 3);
   s.mom = clamp(s.mom - 2);
   const lines = [`CD ${r.used}장을 구웠다. (${mb(r.usedMB)})`, ...r.moved.slice(0, 6).map(m => `· ${m.w.title} ${m.n}${TYPES[m.w.type].unit}`)];
@@ -489,12 +499,13 @@ async function actPC(label) {
 
 async function actYongsan(label) {
   const s = G.s;
+  s.money -= PRICES.yongsan;
   await UI.talk([
-    '지하철 1호선, 용산역. 육교를 건너면 전자상가의 냄새가 났다.',
+    `지하철 1호선, 용산역. 육교를 건너면 전자상가의 냄새가 났다. (차비 ${won(PRICES.yongsan)})`,
     ['owner', pick(['어이 학생, 또 왔네? 오늘은 뭐 찾아?', '공CD 들어왔어. 케이크 통으로 사 가.', '학생, 요즘 뭐 굽길래 그렇게 자주 와?']), 'smile'],
   ]);
   for (;;) {
-    const opts = SHOP.filter(it => it.avail(s)).map(it => ({ label: `${it.name}  ${won(it.price)}`, value: it.id, note: it.desc, disabled: s.money < it.price }));
+    const opts = SHOP.filter(it => it.avail(s)).map(it => ({ label: `${it.name}  ${won(shopPrice(it, s))}`, value: it.id, note: shopDesc(it, s), disabled: s.money < shopPrice(it, s) }));
     const usedPool = availableWorks(s).filter(w => w.type === 'movie' || w.type === 'game');
     if (usedPool.length) opts.push({ label: `중고 CD 뽑기  ${won(6000)}`, value: 'used', note: '영화나 게임이 구워진 중고 CD 한 장', disabled: s.money < 6000 });
     opts.push({ label: '돌아간다', value: 'back' });
@@ -509,7 +520,7 @@ async function actYongsan(label) {
       continue;
     }
     const it = SHOP.find(x => x.id === c);
-    s.money -= it.price;
+    s.money -= shopPrice(it, s);
     Sound.sfx('coin');
     if (c === 'cd10') s.blank += 10;
     if (c === 'cd30') s.blank += 30;
@@ -517,6 +528,10 @@ async function actYongsan(label) {
     if (c === 'repair') { s.pc.driveBroken = false; s.pc.drive = 90; }
     if (c === 'scanner') s.pc.scanner = true;
     if (c === 'usb') s.pc.usb = true;
+    if (c === 'burner24') { s.pc.fastBurner = true; s.pc.driveBroken = false; s.pc.drive = 100; }
+    if (c === 'hdd20') { s.pc.hdd20 = true; s.hddCap += 12000; }
+    if (c === 'hdd40') { s.pc.hdd40 = true; s.hddCap += 25000; }
+    if (c === 'hdd20' || c === 'hdd40') { Sound.sfx('startup'); await UI.notice('하드디스크 추가', [`${it.name}를 직접 달았다. 점퍼 설정 때문에 두 번 다시 열었다.`, `저장 공간: ${mb(s.hddCap)}`]); continue; }
     await UI.say('owner', pick(['고마워, 학생. 또 와.', '좋은 선택이야.', '그건 내가 보장하지.']), 'smile');
   }
 }
@@ -546,12 +561,13 @@ async function actClub(label) {
   });
   if (!ids || !ids.length) return;
   const w = WORK_BY_ID[ids[0]];
+  s.blank--; s.money -= PRICES.club;
   const n = receiveDisc(s, w, 'trade');
   Sound.sfx('item');
   const mine = ownedWorks(s).length;
   if (mine > 1) s.method.share += 3;
   await UI.notice(`${label} · 교환 결과`, [
-    `우편으로 구운 CD를 주고받았다.`,
+    `내 CD를 구워 우편으로 보내고, 형의 CD를 받았다. (공CD 1장, 우표 ${won(PRICES.club)})`,
     `「${w.title}」 +${n}${TYPES[w.type].unit} (CD 보관)`,
     isComplete(s, w) ? '★ 완결!' : '',
   ].filter(Boolean));
@@ -560,8 +576,13 @@ async function actClub(label) {
 
 async function actFriend(label) {
   const s = G.s;
-  s.friend = clamp(s.friend + 12);
   s.mom = clamp(s.mom - 2);
+  if (s.money < PRICES.friend) {
+    s.friend = clamp(s.friend + 5);
+    return UI.talk(['주머니에 돈이 없어서 운동장에서 공만 찼다.', ['friend', '다음엔 PC방 가자. 너 돈 생기면.', 'smile']]);
+  }
+  s.money -= PRICES.friend;
+  s.friend = clamp(s.friend + 12);
   await UI.talk([pick([
     '태식이와 PC방에 갔다. 스타크래프트 한 판에 한 시간이 순식간이었다.',
     '오락실에서 철권을 했다. 태식이는 늘 같은 캐릭터만 한다.',
@@ -602,6 +623,18 @@ async function actFriend(label) {
 async function monthEndUpkeep() {
   const s = G.s;
   s.mom = clamp(s.mom + 4);
+  // 모뎀 전화요금 몫
+  if (s.phoneNights > 0) {
+    const bill = s.phoneNights * PRICES.phone;
+    const paid = Math.min(bill, s.money);
+    s.money -= paid;
+    if (paid < bill) s.mom = clamp(s.mom - 8);
+    await UI.notice('전화요금', [`이번 달 밤새 모뎀을 쓴 날: ${s.phoneNights}일`, `엄마가 전화요금 몫으로 ${won(paid)}을 가져갔다.${paid < bill ? ' (모자란 만큼 잔소리를 들었다)' : ''}`]);
+    s.phoneNights = 0;
+  }
+  // 시험 성적 → 용돈
+  const dm = dateOf(s.turn).m;
+  if (EXAM_MONTHS.includes(dm)) await examResult();
   // 엄마 인내심 바닥 → 금지령
   if (s.mom < 15 && s.banTurn !== s.turn + 1) {
     s.banTurn = s.turn + 1;
@@ -624,6 +657,24 @@ async function monthEndUpkeep() {
     const c = await UI.choose('오늘 밤 조각 모음을 돌려 둘까?', [{ label: '돌려 두고 잔다', value: 'y' }, { label: '귀찮다', value: 'n' }]);
     if (c === 'y') { await UI.runDefrag(s.pc.frag); s.pc.frag = 0; s.stats.defrags++; return UI.notice('디스크 조각 모음', ['조각 모음이 끝났다. 하드디스크가 다시 빨라졌다.']); }
   }
+}
+
+async function examResult() {
+  const s = G.s;
+  const score = (s.monthStudy || 0) + (s.mom >= 60 ? 1 : 0);
+  if (score >= 3) {
+    s.allowanceMod = 3000; s.money += 10000; s.mom = clamp(s.mom + 10);
+    Sound.sfx('coin');
+    await UI.talk([['dad', '성적이 올랐네? 잘했다. 이건 보너스.', 'smile']]);
+    return UI.notice('성적표', ['성적이 올랐다!', `보너스 ${won(10000)} · 다음 시험까지 용돈 +${won(3000)}`]);
+  }
+  if (score === 2) {
+    s.allowanceMod = 0;
+    return UI.notice('성적표', ['성적은 평소와 비슷했다.', '용돈은 그대로.']);
+  }
+  s.allowanceMod = -3000; s.mom = clamp(s.mom - 10);
+  await UI.talk([['mom', '이 점수가 뭐니? 컴퓨터만 하더니. 다음 시험까지 용돈 깎는다.', 'angry']]);
+  return UI.notice('성적표', ['성적이 떨어졌다.', `다음 시험까지 용돈 -${won(3000)}`, '시험 기간에 공부를 더 하거나, 엄마 인내심을 60 이상으로 유지하면 성적이 오릅니다.']);
 }
 
 // ---------- 컬렉션 ----------
@@ -702,6 +753,9 @@ async function menu() {
       '· CD 굽기: 하드의 파일을 CD로 옮겨 공간을 비우고, 포맷에도 안전하게 지킵니다.',
       '· 무엇을(장르) 어떻게(다운로드·스캔·교환·완결) 모았는지가 엔딩을 정합니다.',
       '· 엄마 인내심이 낮으면 밤에 컴퓨터를 꺼 버립니다.',
+      '· 돈: 공CD 값은 해마다 내려갑니다. 친구·동호회·용산에는 돈이 들고, 모뎀 시절엔 밤샌 날마다 전화요금 몫을 냅니다.',
+      '· 시험 달에 공부를 2번 이상 하거나 엄마 인내심이 60 이상이면 성적이 올라 용돈이 늘어납니다.',
+      '· 하드 증설, 고속 CD-RW, 스캐너, USB는 용산에서 돈을 모아 삽니다.',
       '· 조각화가 높으면 다운로드가 느려집니다. 컴퓨터 정비로 조각 모음을 하세요.',
     ]);
     return 'back';

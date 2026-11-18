@@ -167,11 +167,17 @@ const CAST = {
 };
 
 // 상점 (용산)
+// price와 desc는 숫자/문자열 또는 상태를 받는 함수
 const SHOP = [
-  { id: 'cd10', name: '공CD 10장 묶음', price: 9000, desc: '700MB CD-R. 굽기에 필요.', avail: s => true },
-  { id: 'cd30', name: '공CD 30장 스핀들', price: 24000, desc: '케이크 통에 든 공CD. 많이 굽는 사람용.', avail: s => true },
+  { id: 'cd10', name: '공CD 10장 묶음', price: s => Math.round(cdPrice(s.turn) * 10 * 0.9 / 100) * 100, desc: s => `700MB CD-R. 요즘 시세 장당 ${won(cdPrice(s.turn))}.`, avail: s => true },
+  { id: 'cd30', name: '공CD 30장 스핀들', price: s => Math.round(cdPrice(s.turn) * 30 * 0.8 / 100) * 100, desc: '케이크 통에 든 공CD. 많이 굽는 사람용.', avail: s => true },
   { id: 'lens', name: '렌즈 클리너', price: 5000, desc: 'CD 드라이브 상태 +30', avail: s => s.pc.burner },
   { id: 'repair', name: 'CD 드라이브 수리', price: 15000, desc: '고장 난 드라이브를 고친다.', avail: s => s.pc.burner && s.pc.driveBroken },
   { id: 'scanner', name: '중고 평판 스캐너', price: 45000, desc: '만화책 스캔 활동 해금.', avail: s => !s.pc.scanner && s.turn >= 10 },
+  { id: 'burner24', name: '고속 CD-RW (24배속)', price: 40000, desc: '한 번에 10장까지 굽고, 잘 고장 나지 않는다.', avail: s => s.pc.burner && !s.pc.fastBurner && s.turn >= 12 },
+  { id: 'hdd20', name: '20GB 하드디스크 추가', price: 80000, desc: '내 몫 저장 공간 +12GB', avail: s => !s.pc.hdd20 && s.turn >= 12 },
+  { id: 'hdd40', name: '40GB 하드디스크 추가', price: 110000, desc: '내 몫 저장 공간 +25GB', avail: s => !s.pc.hdd40 && s.turn >= 24 },
   { id: 'usb', name: 'USB 메모리 128MB', price: 35000, desc: '파일을 들고 다닐 수 있다. 귀중품.', avail: s => !s.pc.usb && s.turn >= 24 },
 ];
+function shopPrice(it, s) { return typeof it.price === 'function' ? it.price(s) : it.price; }
+function shopDesc(it, s) { return typeof it.desc === 'function' ? it.desc(s) : it.desc; }

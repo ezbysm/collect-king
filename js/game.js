@@ -27,6 +27,18 @@ function dateLabel(turn) {
   return `${d.y}년 ${d.m}월`;
 }
 
+// 공CD 한 장 가격: 2000년 2,000원 → 2001년 1,200원 → 2002년 이후 700원
+function cdPrice(turn) {
+  const y = dateOf(turn).y;
+  return y === 2000 ? 2000 : y === 2001 ? 1200 : 700;
+}
+const PRICES = {
+  friend: 4000,     // PC방·떡볶이
+  club: 1000,       // 우편 교환 우표값 (공CD 1장 별도)
+  yongsan: 2000,    // 지하철 왕복 차비
+  phone: 2000,      // 모뎀으로 밤새 받은 날 하루치 전화요금 몫
+};
+
 function newState(name) {
   return {
     v: 1, name, turn: 0, startDone: -1,
@@ -38,7 +50,8 @@ function newState(name) {
     money: 10000, blank: 3,
     hddCap: 3000,
     net: 'modem',
-    pc: { frag: 10, line: 80, drive: 100, driveBroken: false, burner: false, scanner: false, usb: false },
+    pc: { frag: 10, line: 80, drive: 100, driveBroken: false, burner: false, scanner: false, usb: false, fastBurner: false, hdd20: false, hdd40: false },
+    allowanceMod: 0, monthStudy: 0, phoneNights: 0, lastAllowance: 0,
     mom: 70, friend: 30, love: 10,
     col: {},          // id -> { hdd, cd, part }
     seen: {},
