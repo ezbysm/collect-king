@@ -81,10 +81,10 @@ const Story = (() => {
 
     // 세뱃돈
     if (d.m === 1 && t > 0) {
-      const gift = 30000 + (d.y - 2001) * 5000;
-      st.money += gift;
+      const gift = 40000 + (d.y - 2001) * 10000;
+      st.money += gift / 2;
       Sound.sfx('coin');
-      await talk([`${d.y}년 설날. 친척들에게 받은 세뱃돈이 ${won(gift)}.`, ['mom', '반은 엄마가 맡아 둘게.', 'smile'], '…그 반은 어디로 가는 걸까. 영원한 수수께끼다.']);
+      await talk([`${d.y}년 설날. 친척들에게 받은 세뱃돈이 ${won(gift)}.`, ['mom', '반은 엄마가 맡아 둘게.', 'smile'], `…그래서 내 손에 남은 건 ${won(gift / 2)}. 나머지 반은 어디로 가는 걸까. 영원한 수수께끼다.`]);
     }
 
     // 전화요금 고지서 (모뎀 시절)

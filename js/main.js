@@ -13,7 +13,7 @@ const ACTIVITIES = {
   yongsan:  { name: '용산 원정', icon: '⌂', desc: `차비 ${won(PRICES.yongsan)}. 공CD·부품·하드·중고 CD.` },
   club:     { name: '동호회 활동', icon: '☺', desc: `CD를 우편 교환. 공CD 1장+우표 ${won(PRICES.club)}.` },
   friend:   { name: '친구와 놀기', icon: '♪', desc: `PC방·떡볶이 ${won(PRICES.friend)}. CD를 주고받기도.` },
-  chores:   { name: '심부름·집안일', icon: '₩', desc: '용돈 +6,000, 엄마 인내심 회복.' },
+  chores:   { name: '심부름·집안일', icon: '₩', desc: '용돈 +4,000, 엄마 인내심 회복.' },
   study:    { name: '공부', icon: '✎', desc: '엄마 인내심 회복. 시험 성적→용돈.' },
   rest:     { name: '일찍 자기', icon: '☾', desc: '엄마 인내심 회복. 다운로드는 쉰다.' },
 };
@@ -153,7 +153,7 @@ async function gameLoop() {
 
 function allowance(s) {
   const y = dateOf(s.turn).y;
-  const base = y === 2000 ? 10000 : y === 2001 ? 12000 : 15000;
+  const base = y === 2000 ? 8000 : y === 2001 ? 10000 : 12000;
   return Math.max(0, base + (s.allowanceMod || 0));
 }
 
@@ -247,9 +247,9 @@ async function runActivity(key, idx) {
     case 'club': return actClub(label);
     case 'friend': return actFriend(label);
     case 'chores':
-      s.money += 6000; s.mom = clamp(s.mom + 10);
+      s.money += 4000; s.mom = clamp(s.mom + 10);
       Sound.sfx('coin');
-      return UI.notice(`${label} · 심부름·집안일`, [pick(['설거지를 하고 분리수거를 했다.', '슈퍼에 두부 심부름을 다녀왔다. 거스름돈은 내 것.', '베란다 청소를 했다. 먼지가 엄청났다.']), `용돈 +${won(6000)} · 엄마 인내심 회복`]);
+      return UI.notice(`${label} · 심부름·집안일`, [pick(['설거지를 하고 분리수거를 했다.', '슈퍼에 두부 심부름을 다녀왔다. 거스름돈은 내 것.', '베란다 청소를 했다. 먼지가 엄청났다.']), `용돈 +${won(4000)} · 엄마 인내심 회복`]);
     case 'study':
       s.mom = clamp(s.mom + 14);
       s.monthStudy = (s.monthStudy || 0) + 1;
@@ -663,18 +663,18 @@ async function examResult() {
   const s = G.s;
   const score = (s.monthStudy || 0) + (s.mom >= 60 ? 1 : 0);
   if (score >= 3) {
-    s.allowanceMod = 3000; s.money += 10000; s.mom = clamp(s.mom + 10);
+    s.allowanceMod = 2000; s.money += 5000; s.mom = clamp(s.mom + 10);
     Sound.sfx('coin');
     await UI.talk([['dad', '성적이 올랐네? 잘했다. 이건 보너스.', 'smile']]);
-    return UI.notice('성적표', ['성적이 올랐다!', `보너스 ${won(10000)} · 다음 시험까지 용돈 +${won(3000)}`]);
+    return UI.notice('성적표', ['성적이 올랐다!', `보너스 ${won(5000)} · 다음 시험까지 용돈 +${won(2000)}`]);
   }
   if (score === 2) {
     s.allowanceMod = 0;
     return UI.notice('성적표', ['성적은 평소와 비슷했다.', '용돈은 그대로.']);
   }
-  s.allowanceMod = -3000; s.mom = clamp(s.mom - 10);
+  s.allowanceMod = -2000; s.mom = clamp(s.mom - 10);
   await UI.talk([['mom', '이 점수가 뭐니? 컴퓨터만 하더니. 다음 시험까지 용돈 깎는다.', 'angry']]);
-  return UI.notice('성적표', ['성적이 떨어졌다.', `다음 시험까지 용돈 -${won(3000)}`, '시험 기간에 공부를 더 하거나, 엄마 인내심을 60 이상으로 유지하면 성적이 오릅니다.']);
+  return UI.notice('성적표', ['성적이 떨어졌다.', `다음 시험까지 용돈 -${won(2000)}`, '시험 기간에 공부를 더 하거나, 엄마 인내심을 60 이상으로 유지하면 성적이 오릅니다.']);
 }
 
 // ---------- 컬렉션 ----------
