@@ -785,8 +785,6 @@ function computerView() {
       h('h3', {}, `수집 매체 (${tr.top ? GENRES[tr.top].name : '1위 장르'} 작품 중 몇 %)`),
       ...Object.entries(MEDIA_NAMES).map(([k, n]) => bar(n, tr.media[k] * 100, 100, '#3a7a9a', Math.round(tr.media[k] * 100) + '%')),
       h('h3', {}, `실물 점수 ${Math.round(tr.physPts)} (산 책·받은 CD·산 CD, 성향 점수 1.5배)`),
-      h('h3', {}, '전설의 수집왕까지'),
-      ...legendChecklist(s, tr).map(c => h('div', { class: 'check' + (c.ok ? ' ok' : '') }, h('span', {}, (c.ok ? '☑ ' : '☐ ') + c.label), h('small', {}, `${c.now} / ${c.need}`))),
       h('h3', {}, '수집 방식'),
       ...Object.entries(METHOD_NAMES).map(([k, n]) => bar(n, tr.method[k], mMax, '#606080', '')),
     );
@@ -813,7 +811,6 @@ async function menu() {
       '· 시험 달에 공부를 2번 이상 하거나 엄마 인내심이 60 이상이면 성적이 올라 용돈이 늘어납니다.',
       '· 하드 증설, 고속 CD-RW, 스캐너, USB는 용산에서 돈을 모아 삽니다.',
       '· 서점에서 산 책, 친구·동호회에게 받은 CD, 용산에서 산 CD는 실물이라 성향 점수가 1.5배입니다.',
-      '· 전설의 수집왕은 고르게 많이 모으고, 서점·친구·동호회·용산까지 골고루 다녀야 합니다. 조건은 "내 컴퓨터"에서 확인하세요.',
       '· 조각화가 높으면 다운로드가 느려집니다. 컴퓨터 정비로 조각 모음을 하세요.',
     ]);
     return 'back';
