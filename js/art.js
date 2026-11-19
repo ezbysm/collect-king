@@ -549,55 +549,105 @@ const Art = (() => {
     o.putImageData(d, 0, 0);
     const dx = align === 'center' ? Math.round(x - mw / 2) : x;
     ctx.drawImage(off, dx, y - 1);
+    return { x: dx, w: mw };
   }
 
   // ---------- 타이틀 ----------
-  let titleCache = null, titleText = null;
+  // 모니터 옆으로 그동안 모은 것들: CD 장, 만화책 책장, 게임 박스, 바닥의 스핀들과 책 더미
+  let titleCache = null, titleText = null, titleCursorX = 0;
   function drawTitle(ctx, t) {
     ctx.imageSmoothingEnabled = false;
     if (!titleCache) {
       titleCache = document.createElement('canvas'); titleCache.width = W; titleCache.height = H;
       const c = titleCache.getContext('2d');
+      const r = rng(5);
       gradV(c, 0, 0, W, 100, ['#10101e', '#161628', '#1c1a30']);
-      for (let x = 0; x < W; x += 12) R(c, x, 0, 2, 100, '#14142400');
-      // 창문과 달
-      R(c, 4, 10, 26, 36, '#2a2a40'); gradV(c, 6, 12, 22, 32, SKY.winter);
-      disc(c, 20, 20, 3, '#f4f0d8'); disc(c, 22, 19, 3, SKY.winter[0]);
-      const r = rng(5); for (let i = 0; i < 10; i++) R(c, 6 + ((r() * 22) | 0), 12 + ((r() * 20) | 0), 1, 1, '#ffffff');
-      drawSkyline(c, 6, 32, 22, 12, '#0e1226', '#ffd27a', 12, '#1a1e38');
-      R(c, 16, 10, 2, 36, '#2a2a40'); R(c, 4, 27, 26, 2, '#2a2a40');
+      // 작은 창과 달
+      R(c, 4, 5, 28, 30, '#2a2a40'); gradV(c, 6, 7, 24, 26, SKY.winter);
+      disc(c, 22, 13, 3, '#f4f0d8'); disc(c, 24, 12, 3, SKY.winter[0]);
+      for (let i = 0; i < 8; i++) R(c, 6 + ((r() * 24) | 0), 7 + ((r() * 14) | 0), 1, 1, '#ffffff');
+      drawSkyline(c, 6, 23, 24, 10, '#0e1226', '#ffd27a', 12, '#1a1e38');
+      R(c, 17, 5, 2, 30, '#2a2a40'); R(c, 4, 19, 28, 2, '#2a2a40');
+
+      // 왼쪽: CD 장 (꽉 찬 케이스들)
+      R(c, 3, 40, 32, 58, WOOD.mid); R(c, 3, 40, 32, 1, WOOD.hi); R(c, 33, 40, 2, 58, WOOD.dark);
+      R(c, 5, 42, 28, 55, WOOD.deep);
+      for (let row = 0; row < 4; row++) {
+        const ry = 43 + row * 14;
+        for (let x = 6; x < 32; x++) {
+          const col = CD_COLORS[(r() * CD_COLORS.length) | 0];
+          R(c, x, ry, 1, 11, col); R(c, x, ry, 1, 1, x % 2 ? '#ffffff' : '#d8dce8');
+          if (x % 3 === 0) R(c, x, ry + 5, 1, 3, '#4a4a5a');
+        }
+        R(c, 5, ry + 11, 28, 2, WOOD.base); R(c, 5, ry + 11, 28, 1, WOOD.hi);
+      }
+
+      // 오른쪽: 만화책 책장
+      R(c, 138, 22, 40, 76, WOOD.mid); R(c, 138, 22, 40, 1, WOOD.hi); R(c, 176, 22, 2, 76, WOOD.dark);
+      R(c, 140, 24, 36, 73, WOOD.deep);
+      const MANGA = [['#e04a3a', '#a83020'], ['#3a7ad0', '#2a5aa0'], ['#f0c040', '#c09020'], ['#4ab060', '#2e8040'], ['#f4f0e8', '#c8c0b0'], ['#a060c0', '#7a40a0'], ['#f08ab0', '#c06088']];
+      for (let row = 0; row < 4; row++) {
+        const ry = 25 + row * 18;
+        let x = 141;
+        let series = (r() * MANGA.length) | 0;
+        while (x < 174) {
+          if (r() < 0.25) series = (r() * MANGA.length) | 0; // 같은 시리즈가 몇 권씩 이어진다
+          const [c1, c2] = MANGA[series];
+          const hgt = 13 + (series % 3);
+          R(c, x, ry + 16 - hgt, 2, hgt, c1); R(c, x + 1, ry + 16 - hgt, 1, hgt, c2);
+          R(c, x, ry + 18 - hgt, 2, 1, '#ffffffaa'); // 권수 띠
+          x += 2;
+          if (r() < 0.06 && x < 170) { R(c, x, ry + 6, 1, 10, '#00000000'); x += 1; }
+        }
+        R(c, 140, ry + 16, 36, 2, WOOD.base); R(c, 140, ry + 16, 36, 1, WOOD.hi);
+      }
+      // 책장 위 게임 박스들
+      const boxes = [[139, 8, 11, 14, '#2a4a8a', '#f0c040'], [151, 11, 10, 11, '#8a2a2a', '#f4f0e8'], [162, 6, 13, 16, '#1a1a2a', '#40c0e0']];
+      for (const [bx, by, bw, bh, c1, c2] of boxes) {
+        R(c, bx, by, bw, bh, c1); R(c, bx, by, bw, 1, '#ffffff55'); R(c, bx + bw - 1, by, 1, bh, '#00000055');
+        R(c, bx + 2, by + 2, bw - 4, 4, c2); R(c, bx + 2, by + bh - 4, bw - 4, 1, c2);
+        disc(c, bx + (bw >> 1), by + (bh >> 1) + 2, 2, '#ffffff44');
+      }
+
       // 책상
       R(c, 0, 98, W, 6, '#3a2a22'); R(c, 0, 98, W, 1, '#5a4030');
       gradV(c, 0, 104, W, 31, ['#24182a', '#1a1220']);
-      // 큰 CRT
-      R(c, 40, 18, 106, 82, '#8a826c');
-      R(c, 36, 16, 106, 82, '#cfc6ae'); R(c, 36, 16, 106, 1, '#ece4d0'); R(c, 36, 16, 1, 82, '#ece4d0');
-      R(c, 141, 17, 1, 81, '#aea38a'); R(c, 37, 97, 105, 1, '#aea38a');
-      R(c, 42, 22, 94, 66, '#222222');
-      R(c, 48, 92, 22, 2, '#aea38a');
-      // 스탠드 조명
-      R(c, 150, 92, 14, 6, '#2e4a78'); R(c, 156, 64, 2, 28, '#3a3a4a'); R(c, 148, 58, 14, 6, '#2e4a78'); R(c, 150, 64, 10, 1, '#fff2c0');
-      c.fillStyle = 'rgba(255,220,140,0.12)'; c.beginPath(); c.moveTo(150, 64); c.lineTo(160, 64); c.lineTo(176, 98); c.lineTo(138, 98); c.closePath(); c.fill();
-      // 바닥 CD
-      for (let i = 0; i < 8; i++) R(c, 150, 128 - i * 2, 16, 2, i % 2 ? '#c8d0e0' : '#a8b0c8');
-      disc(c, 22, 122, 7, '#d8dce8'); disc(c, 22, 122, 2, '#24182a'); P(c, [[18, 118], [19, 117]], '#ffffff');
+      // CRT (가운데)
+      R(c, 52, 22, 82, 76, '#8a826c');
+      R(c, 48, 20, 82, 76, '#cfc6ae'); R(c, 48, 20, 82, 1, '#ece4d0'); R(c, 48, 20, 1, 76, '#ece4d0');
+      R(c, 129, 21, 1, 75, '#aea38a'); R(c, 49, 95, 81, 1, '#aea38a');
+      R(c, 53, 25, 72, 60, '#222222');
+      R(c, 58, 89, 18, 2, '#aea38a');
+      // 모니터 앞 책상 위: 투명 케이스 더미, 키보드 대신 CD 한 장
+      for (let i = 0; i < 4; i++) { R(c, 36, 94 - i * 2, 11, 2, i % 2 ? '#c8d8e8' : '#a8c0d8'); R(c, 36, 94 - i * 2, 1, 2, '#ffffff'); }
+      R(c, 132, 92, 6, 6, '#f0c040'); R(c, 132, 92, 6, 1, '#fff0a0'); R(c, 133, 94, 4, 2, '#c08020'); // 만화책 한 권
+
+      // 바닥: CD 스핀들, 흩어진 CD, 만화책 더미, 게임 박스
+      R(c, 146, 112, 20, 18, '#d8dce8'); R(c, 146, 112, 20, 1, '#ffffff');
+      for (let i = 0; i < 9; i++) R(c, 148, 128 - i * 2, 16, 1, '#a8b0c8');
+      R(c, 145, 110, 22, 3, '#4a4a5a'); R(c, 154, 107, 4, 3, '#4a4a5a');
+      for (const [cx, cy] of [[20, 122], [34, 128]]) { disc(c, cx, cy, 6, '#d8dce8'); disc(c, cx, cy, 2, '#24182a'); P(c, [[cx - 3, cy - 4], [cx - 2, cy - 5]], '#ffffff'); disc(c, cx + 3, cy + 2, 1, '#e8a0c0'); }
+      for (let k = 0; k < 7; k++) { const [c1, c2] = MANGA[(k * 3) % MANGA.length]; R(c, 64 + (k % 2), 130 - k * 3, 14, 3, c1); R(c, 64 + (k % 2), 132 - k * 3, 14, 1, c2); R(c, 77 + (k % 2), 130 - k * 3, 1, 2, '#f4f0e0'); }
+      R(c, 100, 116, 16, 18, '#2a4a8a'); R(c, 100, 116, 16, 1, '#5a7ac0'); R(c, 102, 118, 12, 5, '#f0c040'); R(c, 102, 126, 12, 1, '#f0c040'); R(c, 115, 116, 1, 18, '#1a2a5a');
     }
     ctx.drawImage(titleCache, 0, 0);
     // 화면
-    gradV(ctx, 45, 25, 88, 60, ['#08204a', '#0e2e66', '#183a7a']);
+    gradV(ctx, 56, 28, 66, 54, ['#08204a', '#0e2e66', '#183a7a']);
     if (!titleText) {
       titleText = document.createElement('canvas'); titleText.width = W; titleText.height = H;
       const tc = titleText.getContext('2d');
-      crispText(tc, '수집왕', 90, 37, '#000a20', 'center');
-      crispText(tc, '수집왕', 89, 36, '#ffe680', 'center');
-      crispText(tc, '2000 - 2003', 89, 54, '#9ad0ff', 'center');
+      crispText(tc, '수집왕', 90, 40, '#000a20', 'center');
+      crispText(tc, '수집왕', 89, 39, '#ffe680', 'center');
+      const sub = crispText(tc, '2000-2003', 87, 57, '#9ad0ff', 'center');
+      titleCursorX = sub.x + sub.w + 1;
     }
     ctx.drawImage(titleText, 0, 0);
-    if ((t / 500) % 2 < 1) R(ctx, 113, 55, 4, 9, '#9ad0ff');
-    for (let y = 25; y < 85; y += 2) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(45, y, 88, 1); }
-    P(ctx, [[46, 26], [47, 26], [48, 26], [46, 27], [46, 28]], '#ffffff66');
-    R(ctx, 128, 92, 3, 2, (t / 700) % 2 < 1 ? '#40e070' : '#30a050');
-    ctx.fillStyle = 'rgba(80,140,255,0.07)'; ctx.fillRect(20, 10, 140, 110);
+    if ((t / 500) % 2 < 1) R(ctx, titleCursorX, 57, 4, 9, '#9ad0ff');
+    for (let y = 28; y < 82; y += 2) { ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(56, y, 66, 1); }
+    P(ctx, [[57, 29], [58, 29], [59, 29], [57, 30], [57, 31]], '#ffffff66');
+    R(ctx, 118, 89, 3, 2, (t / 700) % 2 < 1 ? '#40e070' : '#30a050');
+    // 모니터 불빛이 책상에 번진다
+    ctx.fillStyle = 'rgba(80,140,255,0.10)'; ctx.fillRect(40, 98, 98, 3);
   }
 
   // ---------- 화면 아래쪽 배경화면 ----------
