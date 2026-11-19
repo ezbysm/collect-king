@@ -731,6 +731,8 @@ function computerView() {
       bar('엄마 인내심', s.mom, 100, s.mom < 30 ? '#c03030' : '#3a8a3a', s.mom),
       h('h3', {}, `성향 — ${traitLabel(tr)}`),
       ...Object.entries(GENRES).map(([k, g]) => bar(g.trait, tr.genre[k], gMax, g.color, '')),
+      h('h3', {}, '수집 매체 (모을 수 있는 것 중 몇 %)'),
+      ...Object.entries(MEDIA_NAMES).map(([k, n]) => bar(n, tr.media[k] * 100, 100, '#3a7a9a', Math.round(tr.media[k] * 100) + '%')),
       h('h3', {}, '수집 방식'),
       ...Object.entries(METHOD_NAMES).map(([k, n]) => bar(n, tr.method[k], mMax, '#606080', '')),
     );

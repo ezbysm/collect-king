@@ -91,9 +91,9 @@ function addUnits(s, w, n, where, method) {
   e[where] += n;
   markSeen(s, w.id);
   const pts = n * TYPES[w.type].weight;
-  if (method === 'download') s.method.download += pts;
+  if (method === 'download') s.method.download += pts * 0.6;
   if (method === 'scan') s.method.scan += pts * 3;
-  if (method === 'trade') s.method.trade += pts * 1.5;
+  if (method === 'trade') s.method.trade += pts * 2;
 }
 
 // 다운로드: queue 순서대로 budget(MB)만큼 받는다
@@ -138,7 +138,7 @@ function doBurn(s, maxDiscs) {
   s.blank -= used;
   s.stats.discs += used;
   s.stats.burns++;
-  if (used) s.method.download += used * 1.5; // 정리하는 습관은 아카이버의 덕목
+  if (used) s.method.download += used * 0.5; // 정리하는 습관은 아카이버의 덕목
   return { moved, used, usedMB };
 }
 
@@ -174,13 +174,13 @@ function receiveDisc(s, w, method = 'trade') {
 // ---------- 성향 ----------
 function computeTraits(s) {
   const genre = Object.fromEntries(Object.keys(GENRES).map(k => [k, 0]));
-  let total = 0, completed = 0, ownedCount = 0;
+  let total = 0, completed = 0, ownedCount = 0, completedPts = 0;
   for (const w of WORKS) {
     const n = owned(s, w.id);
     if (!n) continue;
     ownedCount++;
-    if (n >= w.units) completed++;
     const pts = n * TYPES[w.type].weight;
+    if (n >= w.units) { completed++; completedPts += pts; }
     total += pts;
     for (const g of w.genres) genre[g] += pts / w.genres.length * (w.genres.length > 1 ? 1.4 : 1);
   }
@@ -193,16 +193,50 @@ function computeTraits(s) {
     archiver: s.method.download,
     artisan: s.method.scan,
     sharer: s.method.share + s.method.trade,
-    completer: completed * 14 * (0.4 + ratio),
+    completer: completed >= 8 && ratio >= 0.6 ? completedPts * 0.8 * ratio : 0,
   };
   const mTop = Object.entries(method).sort((a, b) => b[1] - a[1])[0];
   const methodKey = mTop[1] > 0 ? mTop[0] : null;
   let breadth = null;
   if (total > 20) breadth = topShare < 0.28 ? 'omni' : topShare > 0.42 ? 'deep' : null;
-  return { genre, total, top, topShare, completed, ownedCount, method, methodKey, breadth };
+  // 매체별 수집률: 그 매체에서 모을 수 있는 전체 점수 중 몇 %를 모았는지
+  const media = {}, mediaPts = {};
+  for (const [k, types] of Object.entries(MEDIA)) {
+    let got = 0;
+    for (const w of WORKS) if (types.includes(w.type)) got += owned(s, w.id) * TYPES[w.type].weight;
+    media[k] = got / MEDIA_MAX[k];
+    mediaPts[k] = got;
+  }
+  // 조금만 모은 매체는 1위가 될 수 없다 (게임 CD 몇 장으로 프로게이머가 되지 않도록)
+  const mediaTop = Object.entries(media).filter(([k]) => mediaPts[k] >= ENDING_RULES.minMediaPts)
+    .sort((a, b) => b[1] - a[1])[0] || Object.entries(mediaPts).sort((a, b) => b[1] - a[1])[0];
+  return { genre, total, top, topShare, topScore: sorted[0][1], completed, ownedCount, method, methodKey, breadth, media, mediaTop: mediaTop[1] > 0 ? mediaTop[0] : null };
 }
 
 const METHOD_NAMES = { archiver: '아카이버', artisan: '손품장인', sharer: '나눔꾼', completer: '완결주의자' };
+
+// 매체 묶음
+const MEDIA = { video: ['anime', 'movie'], paper: ['manga', 'novel'], game: ['game'], music: ['music'] };
+const MEDIA_NAMES = { video: '영상(애니·영화)', paper: '책(만화·소설)', game: '게임', music: '음악' };
+const MEDIA_MAX = Object.fromEntries(Object.entries(MEDIA).map(([k, types]) =>
+  [k, WORKS.filter(w => types.includes(w.type)).reduce((a, w) => a + w.units * TYPES[w.type].weight, 0)]));
+
+// 엔딩 판정 기준
+const ENDING_RULES = {
+  minTopGenre: 60,       // 1위 장르 점수가 이보다 낮으면 평범한 직장인
+  legendTotal: 400,      // 전설의 수집왕: 수집 점수
+  legendCompleted: 15,   // 전설의 수집왕: 완결 작품 수
+  minMediaPts: 40,       // 매체 1위가 되려면 그 매체에서 최소 이만큼 (게임 CD 6장, 음악 10장, 애니 27화, 만화 40권 정도)
+};
+// 아카이버(기본)일 때: 1위 장르 × 가장 많이 모은 매체
+const ENDING_TABLE = {
+  hot:  { game: 'progamer', video: 'stunt',    paper: 'pe_teacher', music: 'rocker' },
+  love: { game: 'vn_writer', video: 'drama_pd', paper: 'webnovel',  music: 'lyricist' },
+  sf:   { game: 'gamedev',  video: 'vfx',      paper: 'it',         music: 'edm' },
+  mys:  { game: 'escape',   video: 'docu',     paper: 'reporter',   music: 'forensic' },
+  fan:  { game: 'planner',  video: 'animator', paper: 'novelist',   music: 'composer' },
+  life: { game: 'streamer', video: 'vlogger',  paper: 'bookshop',   music: 'cafe' },
+};
 
 function traitLabel(t) {
   if (!t.top) return '아직 없음';
@@ -215,8 +249,9 @@ function traitLabel(t) {
 
 function decideEnding(s) {
   const t = computeTraits(s);
-  if (t.total < 45 || !t.top) return 'ordinary';
+  if (!t.top || t.topScore < ENDING_RULES.minTopGenre) return 'ordinary';
   const g = t.top;
+  if (t.methodKey === 'archiver' && t.breadth === 'omni' && t.total >= ENDING_RULES.legendTotal && t.completed >= ENDING_RULES.legendCompleted) return 'legend';
   switch (t.methodKey) {
     case 'artisan': return (g === 'sf' || g === 'hot') ? 'gamedev' : 'webtoon';
     case 'sharer':
@@ -227,11 +262,8 @@ function decideEnding(s) {
       if (t.breadth === 'deep') return 'fanclub';
       if (g === 'fan') return 'novelist';
       return 'editor';
-    default: // archiver
-      if (t.breadth === 'omni' && t.total >= 150) return 'legend';
-      if (g === 'sf') return 'it';
-      if (g === 'mys') return 'reporter';
-      return t.total >= 150 ? 'legend' : 'it';
+    default: // archiver: 장르 × 매체
+      return ENDING_TABLE[g][t.mediaTop || 'video'];
   }
 }
 
