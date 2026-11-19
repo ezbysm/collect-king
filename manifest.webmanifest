@@ -1,0 +1,16 @@
+{
+  "name": "수집왕",
+  "short_name": "수집왕",
+  "description": "1987년생 수집가의 중학교 3년",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c2650",
+  "theme_color": "#008080",
+  "icons": [
+    { "src": "assets/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "assets/icons/icon-360.png", "sizes": "360x360", "type": "image/png" },
+    { "src": "assets/icons/icon-540.png", "sizes": "540x540", "type": "image/png", "purpose": "any" }
+  ]
+}
