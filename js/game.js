@@ -41,9 +41,13 @@ const PRICES = {
   phone: 2000,      // 모뎀으로 밤새 받은 날 하루치 전화요금 몫
 };
 
-function newState(name) {
+function schoolOf(s) { return (s && s.school) || DEFAULT_SCHOOL; }
+// 졸업 회차: 학교 이름마다 고정된 숫자
+function schoolRound(s) { let h = 7; for (const ch of schoolOf(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return 20 + (h % 31); }
+
+function newState(name, school = DEFAULT_SCHOOL) {
   return {
-    v: 1, name, turn: 0, startDone: -1,
+    v: 1, name, school, turn: 0, startDone: -1,
     heroine: {
       name: pick(HEROINE_SURNAMES) + pick(HEROINE_GIVEN),
       taste: pick(Object.keys(HEROINE_TASTES)),

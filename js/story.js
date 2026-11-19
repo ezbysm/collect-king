@@ -17,6 +17,7 @@ function callName(name) {
 const Story = (() => {
   const s = () => G.s;
   const N = () => s().name;
+  const SCH = () => schoolOf(s());
   const HER = () => s().heroine.name;
   const HG = () => (HER().length >= 3 ? HER().slice(1) : HER()); // 성을 뺀 이름
   const taste = () => HEROINE_TASTES[s().heroine.taste];
@@ -55,7 +56,8 @@ const Story = (() => {
     s().screen = 'off';
     await talk([
       '2000년 3월. 새 천년이 밝았고, 세상은 생각보다 멀쩡했다.',
-      `나는 ${N()}. 오늘부터 중학생이다.`,
+      `나는 ${N()}. 오늘부터 ${SCH()} 1학년이다.`,
+      `교문 앞 벚나무 아래에 '${SCH()} 입학식'이라고 적힌 현수막이 걸려 있었다.`,
       '작년 겨울, 아빠가 큰맘 먹고 컴퓨터를 사 왔다. 펜티엄 III, 하드디스크 10기가.',
       ['mom', '그 컴퓨터, 공부하라고 사 준 거다. 알지?', 'angry'],
       '물론 안다. 그래도 하드디스크에서 3기가쯤은… 내 몫이다.',
@@ -131,7 +133,7 @@ const Story = (() => {
     if (t === 12 || t === 24) {
       const same = chance(0.4 + st.love / 200);
       st.heroine.sameClass = same;
-      await talk([`${d.grade}학년 반 배정 날. 게시판 앞은 사람들로 북적였다.`]);
+      await talk([`${SCH()} ${d.grade}학년 반 배정 날. 게시판 앞은 사람들로 북적였다.`]);
       if (same) {
         await talk([`${josa(HER(), '이/가')} 같은 반이었다. 나도 모르게 주먹을 쥐었다.`]);
         love(3);
@@ -180,7 +182,7 @@ const Story = (() => {
 
     if (t === 0) { // 중1 1학기 — 짝꿍
       await talk([
-        '새 학기 첫 주. 담임 선생님이 번호순으로 짝을 정했다.',
+        `새 학기 첫 주, ${SCH()} 1학년 교실. 담임 선생님이 번호순으로 짝을 정했다.`,
         `내 옆자리는 ${HER()}. 조용하고, 필기를 예쁘게 하는 아이였다.`,
         ['her', '…그거, 필통에 붙인 스티커. 애니 맞지?', 'surprise'],
       ]);
@@ -410,7 +412,7 @@ const Story = (() => {
       if (f === 'y') { st.money -= 10000; love(4); Sound.sfx('coin'); await talk(['프리지어 한 다발. 노란색이 그 애한테 어울릴 것 같았다.']); }
     }
     await talk([
-      '2003년 2월. 졸업식.',
+      `2003년 2월. ${SCH()} 제${schoolRound(st)}회 졸업식.`,
       '교복 위로 밀가루가 날렸고, 누군가는 울었고, 누군가는 웃었다.',
       `3년 동안 내 방에는 CD가 ${st.stats.discs}장 쌓였다.`,
       `운동장 끝, 플라타너스 아래에 ${josa(HER(), '이/가')} 서 있었다.`,
@@ -632,7 +634,7 @@ const Story = (() => {
     UI.setScene('future');
     Sound.bgm('ending');
     st.screen = 'desktop';
-    await talk(['그리고 시간이 흘렀다.']);
+    await talk(['그리고 시간이 흘렀다.', `${josa(SCH(), '을/를')} 졸업한 지 스물세 해. 교문 앞 문방구는 편의점이 되었다고 한다.`]);
     await UI.notice('성향 결과', [
       `최종 성향: ${traitLabel(tr)}`,
       `가장 많이 모은 매체: ${tr.mediaTop ? MEDIA_NAMES[tr.mediaTop] : '없음'}`,

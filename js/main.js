@@ -77,33 +77,64 @@ async function newGame() {
       { label: '새로 시작', value: 'y' }, { label: '취소', value: 'n' }]);
     if (c !== 'y') return title();
   }
-  const name = await askName();
-  if (!name) return title();
-  G.s = newState(name);
+  const who = await askName();
+  if (!who) return title();
+  G.s = newState(who.name, who.school);
   Save.clear();
   UI.setScene('room');
   await Story.prologue();
   await gameLoop();
 }
 
+// 학교 이름 다듬기: '수원' → '수원중학교'
+function normalizeSchool(v) {
+  v = (v || '').replace(/\s/g, '');
+  if (!v) return DEFAULT_SCHOOL;
+  if (!/중학교$/.test(v)) v = v.replace(/(중|중학|학교)$/, '') + '중학교';
+  return v;
+}
+
 function askName() {
   return new Promise(resolve => {
-    const input = h('input', { type: 'text', maxlength: 6, placeholder: '이름 (1~6자)', autocomplete: 'off', enterkeyhint: 'done' });
+    const input = h('input', { type: 'text', maxlength: 6, placeholder: '이름 (1~6자)', autocomplete: 'off', enterkeyhint: 'next' });
+    const school = h('input', { type: 'text', maxlength: 9, value: DEFAULT_SCHOOL, autocomplete: 'off', enterkeyhint: 'done' });
+    const head = h('div', { class: 'idcard-head' }, `${DEFAULT_SCHOOL} 학생증`);
     const err = h('p', { class: 'err' });
+    const info = h('p', { class: 'loc-info' });
+    school.addEventListener('input', () => { head.textContent = `${normalizeSchool(school.value)} 학생증`; });
+    const locBtn = h('button', { class: 'btn loc', type: 'button', onclick: () => {
+      info.textContent = '';
+      if (!navigator.geolocation || !window.isSecureContext) { info.textContent = '이 주소에서는 위치를 쓸 수 없어요. 직접 입력해 주세요.'; return; }
+      locBtn.disabled = true; locBtn.textContent = '위치 찾는 중…';
+      navigator.geolocation.getCurrentPosition(pos => {
+        locBtn.disabled = false; locBtn.textContent = '내 동네 학교로';
+        const p = nearestPlace(pos.coords.latitude, pos.coords.longitude);
+        if (!p) { info.textContent = '근처에 등록된 한국 도시가 없어요. 직접 입력해 주세요.'; return; }
+        school.value = `${p.name}중학교`;
+        head.textContent = `${school.value} 학생증`;
+        info.textContent = `가장 가까운 동네 '${p.name}'(으)로 정했어요. 위치는 기기 밖으로 보내지 않아요.`;
+      }, e => {
+        locBtn.disabled = false; locBtn.textContent = '내 동네 학교로';
+        info.textContent = e.code === 1 ? '위치 권한이 없어서 기본 이름을 써요. 직접 고쳐도 돼요.' : '위치를 찾지 못했어요. 직접 입력해 주세요.';
+      }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 3600000 });
+    } }, '내 동네 학교로');
     const ok = () => {
       const v = input.value.replace(/\s/g, '');
-      if (!v.length) { err.textContent = '이름을 입력해 주세요.'; return; }
+      if (!v.length) { err.textContent = '이름을 입력해 주세요.'; input.focus(); return; }
       if (v.length > 6) { err.textContent = '6자까지 입력할 수 있어요.'; return; }
-      resolve(v);
+      resolve({ name: v, school: normalizeSchool(school.value) });
     };
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') ok(); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') school.focus(); });
+    school.addEventListener('keydown', e => { if (e.key === 'Enter') ok(); });
     UI.setPanel(UI.win('학생증', h('div', { class: 'idcard' },
-      h('div', { class: 'idcard-head' }, '○○중학교 학생증'),
-      h('div', { class: 'idcard-row' }, h('span', {}, '학년'), h('b', {}, '1학년')),
-      h('div', { class: 'idcard-row' }, h('span', {}, '생년'), h('b', {}, '1987년')),
+      head,
+      h('div', { class: 'idcard-row' }, h('span', {}, '학년'), h('b', {}, '1학년'), h('span', { class: 'gap' }), h('span', {}, '생년'), h('b', {}, '1987년')),
       h('label', { class: 'idcard-row' }, h('span', {}, '이름'), input),
-      err,
+      h('label', { class: 'idcard-row' }, h('span', {}, '학교'), school),
+      h('div', { class: 'idcard-row' }, h('span', {}), locBtn),
+      info, err,
     ), [h('button', { class: 'btn', onclick: () => resolve(null) }, '취소'), h('button', { class: 'btn primary', onclick: ok }, '확인')]));
+    document.getElementById('panel').className = 'tall';
     setTimeout(() => input.focus(), 50);
   });
 }
@@ -144,7 +175,7 @@ async function gameLoop() {
   const r = await Story.ending();
   Save.clear();
   await UI.notice('THE END', [
-    `${G.s.name}의 중학교 3년은 이렇게 끝났습니다.`,
+    `${G.s.name}의 ${schoolOf(G.s)} 3년은 이렇게 끝났습니다.`,
     `엔딩: ${r.E.title} / ${r.Rm.title}`,
     '다른 것을 모으면, 다른 사람이 됩니다. 히로인의 이름과 취향도 매번 바뀝니다.',
   ], '타이틀로');
@@ -169,7 +200,7 @@ function hub() {
       const tr = computeTraits(s);
       UI.setPanel(h('div', { class: 'hub' },
         h('div', { class: 'hub-info' },
-          h('div', {}, h('b', {}, `${d.y}년 ${d.m}월`), ` · 중학교 ${d.grade}학년`, EXAM_MONTHS.includes(d.m) ? h('em', { class: 'exam' }, '시험 기간') : null),
+          h('div', {}, h('b', {}, `${d.y}년 ${d.m}월`), ` · ${schoolOf(s)} ${d.grade}학년`, EXAM_MONTHS.includes(d.m) ? h('em', { class: 'exam' }, '시험 기간') : null),
           h('div', { class: 'dim' }, `성향: ${traitLabel(tr)}`),
           h('div', { class: 'dim' }, `인터넷: ${s.net === 'adsl' ? 'ADSL' : '56k 모뎀'} · 남은 하드 ${mb(hddFree(s))}`),
           h('div', { class: 'dim' }, `이번 달 용돈 +${won(s.lastAllowance || allowance(s))}${s.allowanceMod > 0 ? ' (성적 보너스 포함)' : s.allowanceMod < 0 ? ' (성적 때문에 깎임)' : ''} · 공CD 장당 ${won(cdPrice(s.turn))}`),

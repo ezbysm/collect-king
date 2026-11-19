@@ -314,3 +314,6 @@ button, input { font: inherit; color: inherit; }
 .check { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; color: #555; }
 .check.ok { color: #1a6a1a; font-weight: bold; }
 .check small { font-size: 11px; }
+.idcard .gap { flex: 1; width: auto; }
+.btn.loc { min-height: 36px; flex: 1; font-size: 13px; }
+.loc-info { font-size: 12px; color: #1a4a7a; margin: 4px 0 0; min-height: 1em; line-height: 1.4; }
