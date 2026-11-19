@@ -73,6 +73,9 @@ const WORK_ROWS = [
   ['m_fruits', 'manga', '후르츠 바스켓', ['love'], 200103, 10],
   ['m_amhaeng', 'manga', '신암행어사', ['fan', 'hot'], 200109, 6],
   ['m_goong', 'manga', '궁', ['love'], 200209, 3],
+  ['m_gunnm', 'manga', '총몽', ['sf', 'hot'], 200003, 9],
+  ['m_gits', 'manga', '공각기동대', ['sf', 'mys'], 200003, 2],
+  ['m_planetes', 'manga', '플라네테스', ['sf'], 200201, 3],
 
   // 소설 (TXT)
   ['n_dragonraja', 'novel', '드래곤 라자', ['fan'], 200003, 12],
@@ -119,6 +122,13 @@ const WORK_ROWS = [
   ['s_ayu', 'music', '하마사키 아유미', ['love'], 200106, 2],
   ['s_ost', 'music', '애니메이션 OST 모음', ['fan'], 200109, 3],
   ['s_boa2', 'music', '보아 2집 No.1', ['love', 'life'], 200204, 1],
+  ['s_matrix_ost', 'music', '매트릭스 OST', ['sf'], 200003, 1],
+  ['s_eva_ost', 'music', '신세기 에반게리온 OST', ['sf'], 200003, 3],
+  ['s_bebop_ost', 'music', '카우보이 비밥 OST', ['sf', 'hot'], 200003, 3],
+  ['s_conan_ost', 'music', '명탐정 코난 OST', ['mys'], 200003, 2],
+  ['s_kindaichi_ost', 'music', '소년탐정 김전일 OST', ['mys'], 200003, 1],
+  ['s_jsa_ost', 'music', '공동경비구역 JSA OST', ['mys', 'love'], 200010, 1],
+  ['s_gits_ost', 'music', '공각기동대 S.A.C. OST', ['sf', 'mys'], 200210, 1],
 
   // PC 게임 (ISO)
   ['g_starcraft', 'game', '스타크래프트: 브루드 워', ['sf'], 200003, 1],

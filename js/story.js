@@ -22,7 +22,9 @@ const Story = (() => {
   const taste = () => HEROINE_TASTES[s().heroine.taste];
   const say = (...a) => UI.say(...a);
   const talk = l => UI.talk(l);
-  const love = n => { s().love = clamp(s().love + n); };
+  // 호감 상승은 70%만 반영 (내려갈 때는 그대로)
+  const LOVE_GAIN = 0.55;
+  const love = n => { s().love = clamp(s().love + (n > 0 ? Math.round(n * LOVE_GAIN) : n)); };
   const mom = n => { s().mom = clamp(s().mom + n); };
   const friend = n => { s().friend = clamp(s().friend + n); };
 
@@ -335,8 +337,8 @@ const Story = (() => {
         await talk(['오르골을 샀다. 태엽을 감으면 그 시절 유행하던 노래가 흘러나왔다.', ['her', '…예쁘다. 고마워.', 'blush']]);
       }
       const g = how === 'buy' ? null : await giveFromCollection('생일 선물', '무엇을 담아서 선물할까?');
-      if (how === 'buy') { /* 오르골만 */ }
-      else if (!g && how === 'col') { love(2); await talk(['결국 문방구에서 산 볼펜 한 자루를 건넸다.', ['her', '고마워. 잘 쓸게.', 'smile']]); }
+      if (how === 'buy' || (!g && how === 'both')) { /* 오르골만 */ }
+      else if (!g) { love(2); await talk(['결국 문방구에서 산 볼펜 한 자루를 건넸다.', ['her', '고마워. 잘 쓸게.', 'smile']]); }
       else {
         love((g.liked ? 15 : 7) + (g.usb ? 4 : 0));
         await talk([

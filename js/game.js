@@ -93,7 +93,8 @@ function addUnits(s, w, n, where, method) {
   const pts = n * TYPES[w.type].weight;
   if (method === 'download') s.method.download += pts * 0.6;
   if (method === 'scan') s.method.scan += pts * 3;
-  if (method === 'trade') s.method.trade += pts * 2;
+  if (method === 'trade') s.method.trade += pts * 1.5;
+  // 'buy'(용산에서 돈으로 산 것)는 수집 방식 점수에 넣지 않는다
 }
 
 // 다운로드: queue 순서대로 budget(MB)만큼 받는다
@@ -193,24 +194,30 @@ function computeTraits(s) {
     archiver: s.method.download,
     artisan: s.method.scan,
     sharer: s.method.share + s.method.trade,
-    completer: completed >= 8 && ratio >= 0.6 ? completedPts * 0.8 * ratio : 0,
+    // 완결주의자: 적게 모으되 끝까지 (모은 작품 수가 많으면 후보가 아님)
+    completer: completed >= ENDING_RULES.completerMinDone && ownedCount <= ENDING_RULES.completerMaxWorks && ratio >= 0.8 ? completedPts * 0.8 * ratio : 0,
   };
   const mTop = Object.entries(method).sort((a, b) => b[1] - a[1])[0];
   const methodKey = mTop[1] > 0 ? mTop[0] : null;
   let breadth = null;
-  if (total > 20) breadth = topShare < 0.28 ? 'omni' : topShare > 0.42 ? 'deep' : null;
-  // 매체별 수집률: 그 매체에서 모을 수 있는 전체 점수 중 몇 %를 모았는지
-  const media = {}, mediaPts = {};
+  if (total > 20) breadth = topShare < ENDING_RULES.omniShare ? 'omni' : topShare > ENDING_RULES.deepShare ? 'deep' : null;
+  // 매체 비교: 1위 장르의 작품 중, 매체별로 모을 수 있는 것의 몇 %를 모았는지
+  // (예: 열혈 게임은 거의 다 모았고 열혈 애니는 절반이면 → 게임)
+  const media = {}, mediaPts = {}, mediaRank = {};
   for (const [k, types] of Object.entries(MEDIA)) {
-    let got = 0;
-    for (const w of WORKS) if (types.includes(w.type)) got += owned(s, w.id) * TYPES[w.type].weight;
-    media[k] = got / MEDIA_MAX[k];
+    let got = 0, pool = 0;
+    for (const w of WORKS) {
+      if (!types.includes(w.type) || !top || !w.genres.includes(top)) continue;
+      pool += w.units * TYPES[w.type].weight;
+      got += owned(s, w.id) * TYPES[w.type].weight;
+    }
+    media[k] = pool ? got / pool : 0;
     mediaPts[k] = got;
+    // 조금만 모은 매체는 1위가 될 수 없다 (게임 CD 몇 장으로 프로게이머가 되지 않도록)
+    mediaRank[k] = got > 0 && got >= Math.min(ENDING_RULES.minMediaPts, pool * 0.7) ? media[k] : -1;
   }
-  // 조금만 모은 매체는 1위가 될 수 없다 (게임 CD 몇 장으로 프로게이머가 되지 않도록)
-  const mediaTop = Object.entries(media).filter(([k]) => mediaPts[k] >= ENDING_RULES.minMediaPts)
-    .sort((a, b) => b[1] - a[1])[0] || Object.entries(mediaPts).sort((a, b) => b[1] - a[1])[0];
-  return { genre, total, top, topShare, topScore: sorted[0][1], completed, ownedCount, method, methodKey, breadth, media, mediaTop: mediaTop[1] > 0 ? mediaTop[0] : null };
+  const mediaTop = Object.entries(mediaRank).sort((a, b) => (b[1] - a[1]) || (mediaPts[b[0]] - mediaPts[a[0]]))[0];
+  return { genre, total, top, topShare, topScore: sorted[0][1], completed, ownedCount, method, methodKey, breadth, media, mediaRank, mediaTop: mediaTop[1] > 0 ? mediaTop[0] : (top ? Object.entries(mediaPts).sort((a, b) => b[1] - a[1])[0][0] : null) };
 }
 
 const METHOD_NAMES = { archiver: '아카이버', artisan: '손품장인', sharer: '나눔꾼', completer: '완결주의자' };
@@ -223,9 +230,13 @@ const MEDIA_MAX = Object.fromEntries(Object.entries(MEDIA).map(([k, types]) =>
 
 // 엔딩 판정 기준
 const ENDING_RULES = {
-  minTopGenre: 60,       // 1위 장르 점수가 이보다 낮으면 평범한 직장인
+  minTopGenre: 110,      // 1위 장르 점수가 이보다 낮으면 평범한 직장인
   legendTotal: 500,      // 전설의 수집왕: 수집 점수
   legendCompleted: 20,   // 전설의 수집왕: 완결 작품 수
+  omniShare: 0.22,       // 1위 장르 비율이 이보다 낮으면 잡식가
+  deepShare: 0.6,        // 1위 장르 비율이 이보다 높으면 한 우물
+  completerMaxWorks: 12, // 완결주의자 후보: 모은 작품 수 상한
+  completerMinDone: 8,   // 완결주의자 후보: 완결 작품 수 하한
   minMediaPts: 40,       // 매체 1위가 되려면 그 매체에서 최소 이만큼 (게임 CD 6장, 음악 10장, 애니 27화, 만화 40권 정도)
 };
 // 아카이버(기본)일 때: 1위 장르 × 가장 많이 모은 매체
@@ -249,9 +260,10 @@ function traitLabel(t) {
 
 function decideEnding(s) {
   const t = computeTraits(s);
-  if (!t.top || t.topScore < ENDING_RULES.minTopGenre) return 'ordinary';
+  // 완결주의자는 '적게, 끝까지'라서 수집량 기준 대신 완결로 판정한다
+  if (!t.top || (t.methodKey !== 'completer' && t.topScore < ENDING_RULES.minTopGenre)) return 'ordinary';
   const g = t.top;
-  if (t.methodKey === 'archiver' && t.breadth === 'omni' && t.total >= ENDING_RULES.legendTotal && t.completed >= ENDING_RULES.legendCompleted) return 'legend';
+  if (t.breadth === 'omni' && t.total >= ENDING_RULES.legendTotal && t.completed >= ENDING_RULES.legendCompleted) return 'legend';
   switch (t.methodKey) {
     case 'artisan': return g === 'sf' ? 'gamedev' : 'webtoon';
     case 'sharer':

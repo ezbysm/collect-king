@@ -3,6 +3,7 @@
 
 const { h } = UI;
 const EXAM_MONTHS = [4, 7, 10, 12];
+const BUNDLE_PRICE = 15000;
 
 // ---------- 활동 정의 ----------
 const ACTIVITIES = {
@@ -508,9 +509,25 @@ async function actYongsan(label) {
     const opts = SHOP.filter(it => it.avail(s)).map(it => ({ label: `${it.name}  ${won(shopPrice(it, s))}`, value: it.id, note: shopDesc(it, s), disabled: s.money < shopPrice(it, s) }));
     const usedPool = availableWorks(s).filter(w => w.type === 'movie' || w.type === 'game');
     if (usedPool.length) opts.push({ label: `중고 CD 뽑기  ${won(6000)}`, value: 'used', note: '영화나 게임이 구워진 중고 CD 한 장', disabled: s.money < 6000 });
+    if (s.turn >= 12) opts.push({ label: `중고 CD 묶음 고르기  ${won(BUNDLE_PRICE)}`, value: 'bundle', note: '원하는 작품을 CD 3장 분량까지. 구워 둔 걸 파는 가게', disabled: s.money < BUNDLE_PRICE });
     opts.push({ label: '돌아간다', value: 'back' });
     const c = await UI.choose(`가진 돈 ${won(s.money)}`, opts, 'owner');
     if (c === 'back') break;
+    if (c === 'bundle') {
+      const pool = availableWorks(s);
+      const ids = await UI.pickWorks('중고 CD 묶음 고르기', pool, {
+        max: 1, allowCancel: true, confirmLabel: `${won(BUNDLE_PRICE)}에 사기`,
+        info: w => `${owned(s, w.id)}/${w.units}${TYPES[w.type].unit} · CD 3장에 최대 ${Math.min(remaining(s, w), Math.floor(CD_MB / w.size) * 3)}${TYPES[w.type].unit}`,
+      });
+      if (!ids || !ids.length) continue;
+      const w = WORK_BY_ID[ids[0]];
+      s.money -= BUNDLE_PRICE;
+      let n = 0;
+      for (let k = 0; k < 3 && remaining(s, w) > 0; k++) n += receiveDisc(s, w, 'buy');
+      Sound.sfx('item');
+      await UI.talk([['owner', '그거 찾는 사람 많아. 잘 골랐네.', 'smile'], `「${w.title}」 +${n}${TYPES[w.type].unit} (CD 보관)`]);
+      continue;
+    }
     if (c === 'used') {
       s.money -= 6000;
       const w = pick(usedPool);
@@ -731,7 +748,7 @@ function computerView() {
       bar('엄마 인내심', s.mom, 100, s.mom < 30 ? '#c03030' : '#3a8a3a', s.mom),
       h('h3', {}, `성향 — ${traitLabel(tr)}`),
       ...Object.entries(GENRES).map(([k, g]) => bar(g.trait, tr.genre[k], gMax, g.color, '')),
-      h('h3', {}, '수집 매체 (모을 수 있는 것 중 몇 %)'),
+      h('h3', {}, `수집 매체 (${tr.top ? GENRES[tr.top].name : '1위 장르'} 작품 중 몇 %)`),
       ...Object.entries(MEDIA_NAMES).map(([k, n]) => bar(n, tr.media[k] * 100, 100, '#3a7a9a', Math.round(tr.media[k] * 100) + '%')),
       h('h3', {}, '수집 방식'),
       ...Object.entries(METHOD_NAMES).map(([k, n]) => bar(n, tr.method[k], mMax, '#606080', '')),
