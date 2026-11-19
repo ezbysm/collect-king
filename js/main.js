@@ -9,7 +9,7 @@ const BUNDLE_PRICE = 15000;
 const ACTIVITIES = {
   download: { name: '밤새 다운로드', icon: '⇩', desc: '작품을 골라 인터넷 속도만큼 받는다.' },
   burn:     { name: 'CD 굽기', icon: '◎', desc: '하드의 파일을 CD로 옮겨 안전하게 보관.' },
-  scan:     { name: '만화책 사서 스캔', icon: '▤', desc: `한 권 ${won(MANGA_PRICE)}. 스캐너 필요.` },
+  scan:     { name: '서점 가기', icon: '▤', desc: `만화 ${won(MANGA_PRICE)}·소설 ${won(NOVEL_PRICE)}. 스캐너 있으면 스캔.` },
   pc:       { name: '컴퓨터 정비', icon: '⚙', desc: '조각 모음, 스캔디스크, 회선 점검.' },
   yongsan:  { name: '용산 원정', icon: '⌂', desc: `차비 ${won(PRICES.yongsan)}. 공CD·부품·하드·중고 CD.` },
   club:     { name: '동호회 활동', icon: '☺', desc: `CD를 우편 교환. 공CD 1장+우표 ${won(PRICES.club)}.` },
@@ -34,8 +34,7 @@ function activityState(s, key) {
       if (hddUsed(s) - partsMB(s) < 1) return '구울 파일이 없다';
       return null;
     case 'scan':
-      if (!s.pc.scanner) return '스캐너가 없다';
-      if (s.money < MANGA_PRICE) return '돈이 없다';
+      if (s.money < MANGA_PRICE) return '책 살 돈이 없다';
       return null;
     case 'pc': return banned ? '컴퓨터 금지령' : null;
     case 'yongsan': return s.money < PRICES.yongsan ? '차비가 없다' : null;
@@ -239,6 +238,8 @@ async function runActivity(key, idx) {
     s.mom = clamp(s.mom + 4);
     return;
   }
+  s.stats.acts = s.stats.acts || {};
+  s.stats.acts[key] = (s.stats.acts[key] || 0) + 1;
   switch (key) {
     case 'download': return actDownload(label);
     case 'burn': return actBurn(label);
@@ -458,31 +459,41 @@ async function evDriveBroken() {
 
 async function actScan(label) {
   const s = G.s;
-  if (!s.pc.scanner) return UI.notice(label, ['스캐너가 없다.']);
-  if (s.money < MANGA_PRICE) { await UI.notice(`${label} · 만화책 스캔`, ['서점에 갔지만 만화책 살 돈이 없었다.']); return; }
-  const mangas = availableWorks(s).filter(w => w.type === 'manga');
-  if (!mangas.length) return UI.notice(label, ['서점에 있는 만화는 이미 다 스캔했다.']);
-  const ids = await UI.pickWorks(`${label} · 어떤 만화책을 살까?`, mangas, {
-    max: 1, allowCancel: false, confirmLabel: '서점으로',
-    info: w => `${owned(s, w.id)}/${w.units}권 · 권당 ${won(MANGA_PRICE)}`,
+  const priceOf = w => (w.type === 'novel' ? NOVEL_PRICE : MANGA_PRICE);
+  const books = availableWorks(s).filter(w => (w.type === 'manga' || w.type === 'novel') && s.money >= priceOf(w));
+  if (!books.length) return UI.notice(`${label} · 서점`, [s.money < MANGA_PRICE ? '서점에 갔지만 책 살 돈이 없었다.' : '서점에 있는 책은 이미 다 샀다.']);
+  const ids = await UI.pickWorks(`${label} · 서점에서 무엇을 살까?`, books, {
+    max: 1, allowCancel: false, confirmLabel: '사러 가기',
+    hint: s.pc.scanner ? '만화는 사서 스캔까지 합니다' : '스캐너가 없어서 책장에 꽂아 둡니다',
+    info: w => `${owned(s, w.id)}/${w.units}권 · 권당 ${won(priceOf(w))}`,
   });
   if (!ids || !ids.length) return;
   const w = WORK_BY_ID[ids[0]];
-  const maxBuy = Math.min(6, remaining(s, w), Math.floor(s.money / MANGA_PRICE), Math.floor(hddFree(s) / w.size));
-  if (maxBuy <= 0) return UI.notice(label, [hddFree(s) < w.size ? '하드에 스캔본을 저장할 공간이 없다.' : '살 수 있는 권이 없다.']);
-  const opts = [1, 2, 3, 4, 6].filter(n => n <= maxBuy).map(n => ({ label: `${n}권 사기`, value: n, note: won(n * MANGA_PRICE) }));
-  if (!opts.some(o => o.value === maxBuy)) opts.push({ label: `${maxBuy}권 사기`, value: maxBuy, note: won(maxBuy * MANGA_PRICE) });
-  const n = await UI.choose(`「${w.title}」 몇 권을 살까? (한 번에 최대 6권 스캔)`, opts);
-  s.money -= n * MANGA_PRICE;
-  s.screen = 'desktop';
-  Sound.sfx('scanner');
-  await UI.progress('스캔 중…', `「${w.title}」 한 장, 한 장… (300dpi)`, 1800, '스캔 완료');
-  addUnits(s, w, n, 'hdd', 'scan');
-  s.pc.frag = clamp(s.pc.frag + 3);
-  await UI.notice(`${label} · 스캔 결과`, [
-    `「${w.title}」 ${n}권을 스캔해 JPG로 저장했다. (${mb(n * w.size)})`,
-    pick(['책을 너무 세게 눌러서 책등이 갈라졌다. 그래도 스캔본은 완벽하다.', '삐뚤어진 페이지는 다시 스캔했다. 세 번이나.', '스캐너 불빛이 지나갈 때마다 방이 환해졌다.']),
-    isComplete(s, w) ? '★ 완결까지 모았다!' : `${owned(s, w.id)}/${w.units}권`,
+  const scan = s.pc.scanner && w.type === 'manga';
+  const maxBuy = Math.min(6, remaining(s, w), Math.floor(s.money / priceOf(w)), scan ? Math.floor(hddFree(s) / w.size) : 99);
+  if (maxBuy <= 0) return UI.notice(label, ['하드에 스캔본을 저장할 공간이 없다. 먼저 CD로 굽자.']);
+  const opts = [1, 2, 3, 4, 6].filter(n => n <= maxBuy).map(n => ({ label: `${n}권 사기`, value: n, note: won(n * priceOf(w)) }));
+  if (!opts.some(o => o.value === maxBuy)) opts.push({ label: `${maxBuy}권 사기`, value: maxBuy, note: won(maxBuy * priceOf(w)) });
+  const n = await UI.choose(`「${w.title}」 몇 권을 살까? (한 번에 최대 6권)`, opts);
+  s.money -= n * priceOf(w);
+  Sound.sfx('coin');
+  if (scan) {
+    s.screen = 'desktop';
+    Sound.sfx('scanner');
+    await UI.progress('스캔 중…', `「${w.title}」 한 장, 한 장… (300dpi)`, 1800, '스캔 완료');
+    addUnits(s, w, n, 'hdd', 'scan');
+    s.pc.frag = clamp(s.pc.frag + 3);
+    return UI.notice(`${label} · 서점과 스캔`, [
+      `「${w.title}」 ${n}권을 사서 스캔해 JPG로 저장했다. (${mb(n * w.size)}) 책은 책장에.`,
+      pick(['책을 너무 세게 눌러서 책등이 갈라졌다. 그래도 스캔본은 완벽하다.', '삐뚤어진 페이지는 다시 스캔했다. 세 번이나.', '스캐너 불빛이 지나갈 때마다 방이 환해졌다.']),
+      isComplete(s, w) ? '★ 완결까지 모았다!' : `${owned(s, w.id)}/${w.units}권`,
+    ]);
+  }
+  addUnits(s, w, n, 'book', 'book');
+  return UI.notice(`${label} · 서점`, [
+    `「${w.title}」 ${n}권을 사서 책장에 꽂았다. 비닐 냄새가 좋았다.`,
+    w.type === 'manga' ? '스캐너가 있으면 이 만화를 파일로도 만들 수 있을 텐데.' : '한 장 한 장 넘기는 맛은 TXT 파일이 따라올 수 없다.',
+    isComplete(s, w) ? '★ 완결까지 모았다!' : `${owned(s, w.id)}/${w.units}권 · 실물은 성향 점수가 1.5배`,
   ]);
 }
 
@@ -709,7 +720,7 @@ function collectionView() {
         const n = owned(s, w.id);
         const e = s.col[w.id];
         if (!n && !s.seen[w.id] && !Meta.data.seen[w.id]) { hidden++; continue; }
-        const where = e ? [e.hdd ? `HDD ${e.hdd}` : '', e.cd ? `CD ${e.cd}` : ''].filter(Boolean).join(' · ') : '';
+        const where = e ? [e.hdd ? `HDD ${e.hdd}` : '', e.cd ? `CD ${e.cd}` : '', e.book ? `책 ${e.book}` : ''].filter(Boolean).join(' · ') : '';
         list.append(UI.workRow(w, n ? `${n}/${w.units}${TYPES[w.type].unit} ${where}` : '없음 (본 적 있음)', { dim: !n, noNew: true }));
       }
       if (hidden) list.append(h('p', { class: 'empty' }, `??? 아직 만나지 못한 작품 ${hidden}개`));
@@ -750,6 +761,9 @@ function computerView() {
       ...Object.entries(GENRES).map(([k, g]) => bar(g.trait, tr.genre[k], gMax, g.color, '')),
       h('h3', {}, `수집 매체 (${tr.top ? GENRES[tr.top].name : '1위 장르'} 작품 중 몇 %)`),
       ...Object.entries(MEDIA_NAMES).map(([k, n]) => bar(n, tr.media[k] * 100, 100, '#3a7a9a', Math.round(tr.media[k] * 100) + '%')),
+      h('h3', {}, `실물 점수 ${Math.round(tr.physPts)} (산 책·받은 CD·산 CD, 성향 점수 1.5배)`),
+      h('h3', {}, '전설의 수집왕까지'),
+      ...legendChecklist(s, tr).map(c => h('div', { class: 'check' + (c.ok ? ' ok' : '') }, h('span', {}, (c.ok ? '☑ ' : '☐ ') + c.label), h('small', {}, `${c.now} / ${c.need}`))),
       h('h3', {}, '수집 방식'),
       ...Object.entries(METHOD_NAMES).map(([k, n]) => bar(n, tr.method[k], mMax, '#606080', '')),
     );
@@ -775,6 +789,8 @@ async function menu() {
       '· 돈: 공CD 값은 해마다 내려갑니다. 친구·동호회·용산에는 돈이 들고, 모뎀 시절엔 밤샌 날마다 전화요금 몫을 냅니다.',
       '· 시험 달에 공부를 2번 이상 하거나 엄마 인내심이 60 이상이면 성적이 올라 용돈이 늘어납니다.',
       '· 하드 증설, 고속 CD-RW, 스캐너, USB는 용산에서 돈을 모아 삽니다.',
+      '· 서점에서 산 책, 친구·동호회에게 받은 CD, 용산에서 산 CD는 실물이라 성향 점수가 1.5배입니다.',
+      '· 전설의 수집왕은 고르게 많이 모으고, 서점·친구·동호회·용산까지 골고루 다녀야 합니다. 조건은 "내 컴퓨터"에서 확인하세요.',
       '· 조각화가 높으면 다운로드가 느려집니다. 컴퓨터 정비로 조각 모음을 하세요.',
     ]);
     return 'back';

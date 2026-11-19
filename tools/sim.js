@@ -81,6 +81,12 @@ function makePolicy(goal, api) {
     // 하드가 차면 굽기
     if (usedPct > 0.55 && can('burn') && free()) slots.push('burn');
     if (s.pc.frag >= 65 && can('pc') && free()) slots.push('pc');
+    // 전설: 서점·용산·동호회·친구를 골고루 (가장 덜 한 것부터 한 달에 하나)
+    if (goal.kind === 'legend' && free()) {
+      const acts = s.stats.acts || {};
+      const need = ['scan', 'friend', 'club', 'yongsan'].filter(k => (acts[k] || 0) < 5 && can(k)).sort((a, b) => (acts[a] || 0) - (acts[b] || 0));
+      if (need.length) slots.push(need[0]);
+    }
     // 주 활동 채우기
     // 받을 목표 작품이 다 떨어졌으면 다운로드 대신 심부름(돈)·공부(엄마)
     const targetLeft = !goal.genre || W.availableWorks(s).some(w => matchGenre(w));
@@ -88,7 +94,8 @@ function makePolicy(goal, api) {
       goal.kind === 'sharer' ? ['club', 'friend', 'club'] : ['download'];
     let guard = 0;
     while (free() && guard++ < 10) {
-      let k = main.find(m => can(m) && !(m === 'scan' && s.money < 3500 * 3));
+      let k = main.find(m => can(m) && !(m === 'scan' && (s.money < 3500 * 3 || (goal.kind === 'artisan' && !s.pc.scanner))));
+      if (!k && goal.kind === 'artisan' && !s.pc.scanner) k = 'chores'; // 스캐너 살 돈 모으기
       if (k === 'download' && slots.filter(x => x === 'download').length >= 2 && W.hddUsed(s) / s.hddCap > 0.3 && can('burn') && !slots.includes('burn')) k = 'burn';
       if (!k) k = s.money < 8000 ? 'chores' : (can('download') ? 'download' : 'chores');
       slots.push(k);
@@ -167,7 +174,8 @@ function makePolicy(goal, api) {
       const both = works.filter(w => matchGenre(w) && matchMedia(w));
       return both.length ? best(both, 1).map(w => w.id) : null;
     }
-    if (title.includes('만화책') || title.includes('교환') || title.includes('묶음')) return best(works, 1).map(w => w.id);
+    if (title.includes('서점') && goal.kind === 'artisan' && s.pc.scanner) { const m = works.filter(w => w.type === 'manga'); if (m.length) return best(m, 1).map(w => w.id); }
+    if (title.includes('서점') || title.includes('교환') || title.includes('묶음')) return best(works, 1).map(w => w.id);
     // 히로인 선물: 히로인 취향에 맞는 것(대사 힌트로 알 수 있다고 가정)
     const T = W.HEROINE_TASTES[s.heroine.taste];
     const liked = works.filter(w => T.likes(w));

@@ -134,6 +134,16 @@ const Art = (() => {
         if (idx % 2) R(ctx, cx, rows[ri] + 1, 1, 1, '#ffffff');
       }
     }
+    // 서점에서 산 실물 책은 방바닥에 쌓인다
+    let books2 = 0;
+    for (const id in s.col) { const w = WORK_BY_ID[id]; if (w && (w.type === 'manga' || w.type === 'novel')) books2 += s.col[id].phys || 0; }
+    const BOOK_COLORS = ['#c8503a', '#3a6ab0', '#e0b040', '#4a9a5a', '#8a5aa0', '#e8e0d0'];
+    for (let i = 0, bx = 2; i < Math.min(books2, 60) && bx < 16; bx += 7) {
+      for (let k = 0; k < 20 && i < Math.min(books2, 60); k++, i++) {
+        R(ctx, bx, 132 - k * 2, 6, 2, BOOK_COLORS[(i * 7) % BOOK_COLORS.length]);
+        R(ctx, bx, 133 - k * 2, 6, 1, '#00000033');
+      }
+    }
     // 넘치는 CD는 바닥에 탑으로
     let sx = 62;
     while (discs > 0 && sx < 92) {

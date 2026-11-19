@@ -7,6 +7,8 @@ const TOTAL_TURNS = 36;
 const SPEED = { modem: 150, adsl: 2000 };      // 수집 활동 1칸당 MB
 const CD_MB = 700;
 const MANGA_PRICE = 3500;
+const NOVEL_PRICE = 6000;
+const PHYS_BONUS = 0.5;   // 실물(산 책, 받은·산 CD)은 성향 점수 1.5배
 
 const G = { s: null };
 
@@ -65,10 +67,11 @@ function newState(name) {
 
 // ---------- 컬렉션 ----------
 function entry(s, id) {
-  if (!s.col[id]) s.col[id] = { hdd: 0, cd: 0, part: 0 };
+  if (!s.col[id]) s.col[id] = { hdd: 0, cd: 0, part: 0, book: 0, phys: 0 };
   return s.col[id];
 }
-function owned(s, id) { const e = s.col[id]; return e ? e.hdd + e.cd : 0; }
+// 책장에 꽂힌 실물 책(book)도 소장으로 친다
+function owned(s, id) { const e = s.col[id]; return e ? e.hdd + e.cd + (e.book || 0) : 0; }
 function remaining(s, w) { return Math.max(0, w.units - owned(s, w.id)); }
 function isComplete(s, w) { return owned(s, w.id) >= w.units; }
 function hddUsed(s) {
@@ -91,6 +94,8 @@ function addUnits(s, w, n, where, method) {
   e[where] += n;
   markSeen(s, w.id);
   const pts = n * TYPES[w.type].weight;
+  // 실물: 서점에서 산 책, 친구·동호회에게 받은 CD, 용산에서 산 CD
+  if (method === 'scan' || method === 'trade' || method === 'buy' || method === 'book') e.phys = (e.phys || 0) + n;
   if (method === 'download') s.method.download += pts * 0.6;
   if (method === 'scan') s.method.scan += pts * 3;
   if (method === 'trade') s.method.trade += pts * 1.5;
@@ -175,12 +180,14 @@ function receiveDisc(s, w, method = 'trade') {
 // ---------- 성향 ----------
 function computeTraits(s) {
   const genre = Object.fromEntries(Object.keys(GENRES).map(k => [k, 0]));
-  let total = 0, completed = 0, ownedCount = 0, completedPts = 0;
+  let total = 0, completed = 0, ownedCount = 0, completedPts = 0, physPts = 0;
   for (const w of WORKS) {
     const n = owned(s, w.id);
     if (!n) continue;
     ownedCount++;
-    const pts = n * TYPES[w.type].weight;
+    const phys = Math.min((s.col[w.id] && s.col[w.id].phys) || 0, n) * TYPES[w.type].weight;
+    physPts += phys;
+    const pts = n * TYPES[w.type].weight + phys * PHYS_BONUS;
     if (n >= w.units) { completed++; completedPts += pts; }
     total += pts;
     for (const g of w.genres) genre[g] += pts / w.genres.length * (w.genres.length > 1 ? 1.4 : 1);
@@ -217,7 +224,7 @@ function computeTraits(s) {
     mediaRank[k] = got > 0 && got >= Math.min(ENDING_RULES.minMediaPts, pool * 0.7) ? media[k] : -1;
   }
   const mediaTop = Object.entries(mediaRank).sort((a, b) => (b[1] - a[1]) || (mediaPts[b[0]] - mediaPts[a[0]]))[0];
-  return { genre, total, top, topShare, topScore: sorted[0][1], completed, ownedCount, method, methodKey, breadth, media, mediaRank, mediaTop: mediaTop[1] > 0 ? mediaTop[0] : (top ? Object.entries(mediaPts).sort((a, b) => b[1] - a[1])[0][0] : null) };
+  return { genre, total, top, topShare, topScore: sorted[0][1], completed, ownedCount, method, methodKey, breadth, media, mediaRank, physPts, mediaTop: mediaTop[1] > 0 ? mediaTop[0] : (top ? Object.entries(mediaPts).sort((a, b) => b[1] - a[1])[0][0] : null) };
 }
 
 const METHOD_NAMES = { archiver: '아카이버', artisan: '손품장인', sharer: '나눔꾼', completer: '완결주의자' };
@@ -233,6 +240,9 @@ const ENDING_RULES = {
   minTopGenre: 110,      // 1위 장르 점수가 이보다 낮으면 평범한 직장인
   legendTotal: 500,      // 전설의 수집왕: 수집 점수
   legendCompleted: 20,   // 전설의 수집왕: 완결 작품 수
+  legendPhys: 120,       // 전설의 수집왕: 실물 점수 (산 책·받은 CD·산 CD)
+  legendActs: 4,         // 전설의 수집왕: 주요 활동을 각각 이 횟수 이상
+  legendFriend: 60,      // 전설의 수집왕: 친구와의 우정
   omniShare: 0.22,       // 1위 장르 비율이 이보다 낮으면 잡식가
   deepShare: 0.55,       // 1위 장르 비율이 이보다 높으면 한 우물
   completerMaxWorks: 12, // 완결주의자 후보: 모은 작품 수 상한
@@ -263,7 +273,7 @@ function decideEnding(s) {
   // 완결주의자는 '적게, 끝까지'라서 수집량 기준 대신 완결로 판정한다
   if (!t.top || (t.methodKey !== 'completer' && t.topScore < ENDING_RULES.minTopGenre)) return 'ordinary';
   const g = t.top;
-  if (t.breadth === 'omni' && t.total >= ENDING_RULES.legendTotal && t.completed >= ENDING_RULES.legendCompleted) return 'legend';
+  if (legendChecklist(s, t).every(c => c.ok)) return 'legend';
   switch (t.methodKey) {
     case 'artisan': return g === 'sf' ? 'gamedev' : 'webtoon';
     case 'sharer':
@@ -277,6 +287,22 @@ function decideEnding(s) {
     default: // archiver: 장르 × 매체
       return ENDING_TABLE[g][t.mediaTop || 'video'];
   }
+}
+
+// 전설의 수집왕 조건 — '내 컴퓨터'에서 진행 상황을 볼 수 있다
+const LEGEND_ACTS = { download: '다운로드', burn: 'CD 굽기', scan: '서점', yongsan: '용산', club: '동호회', friend: '친구' };
+function legendChecklist(s, t = computeTraits(s)) {
+  const R = ENDING_RULES;
+  const acts = (s.stats && s.stats.acts) || {};
+  const list = [
+    { label: '장르를 고르게', ok: t.breadth === 'omni', now: `1위 장르 ${Math.round(t.topShare * 100)}%`, need: `${Math.round(R.omniShare * 100)}% 미만` },
+    { label: '수집 점수', ok: t.total >= R.legendTotal, now: Math.round(t.total), need: R.legendTotal },
+    { label: '완결 작품', ok: t.completed >= R.legendCompleted, now: t.completed, need: R.legendCompleted },
+    { label: '실물 점수', ok: t.physPts >= R.legendPhys, now: Math.round(t.physPts), need: R.legendPhys },
+    { label: '친구와의 우정', ok: s.friend >= R.legendFriend, now: Math.round(s.friend), need: R.legendFriend },
+  ];
+  for (const [k, name] of Object.entries(LEGEND_ACTS)) list.push({ label: `${name} ${R.legendActs}번`, ok: (acts[k] || 0) >= R.legendActs, now: acts[k] || 0, need: R.legendActs });
+  return list;
 }
 
 function decideRomance(s) {
