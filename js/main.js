@@ -100,24 +100,17 @@ function askName() {
     const school = h('input', { type: 'text', maxlength: 9, value: DEFAULT_SCHOOL, autocomplete: 'off', enterkeyhint: 'done' });
     const head = h('div', { class: 'idcard-head' }, `${DEFAULT_SCHOOL} 학생증`);
     const err = h('p', { class: 'err' });
-    const info = h('p', { class: 'loc-info' });
-    school.addEventListener('input', () => { head.textContent = `${normalizeSchool(school.value)} 학생증`; });
-    const locBtn = h('button', { class: 'btn loc', type: 'button', onclick: () => {
-      info.textContent = '';
-      if (!navigator.geolocation || !window.isSecureContext) { info.textContent = '이 주소에서는 위치를 쓸 수 없어요. 직접 입력해 주세요.'; return; }
-      locBtn.disabled = true; locBtn.textContent = '위치 찾는 중…';
+    school.addEventListener('input', () => { head.textContent = `${normalizeSchool(school.value)} 학생증`; touched = true; });
+    // 학생증을 열면 바로 위치로 학교 이름을 정한다 (안내 없이, 실패하면 기본 이름 그대로)
+    let touched = false;
+    if (navigator.geolocation && window.isSecureContext) {
       navigator.geolocation.getCurrentPosition(pos => {
-        locBtn.disabled = false; locBtn.textContent = '내 동네 학교로';
         const p = nearestPlace(pos.coords.latitude, pos.coords.longitude);
-        if (!p) { info.textContent = '근처에 등록된 한국 도시가 없어요. 직접 입력해 주세요.'; return; }
+        if (!p || touched) return;
         school.value = `${p.name}중학교`;
         head.textContent = `${school.value} 학생증`;
-        info.textContent = `가장 가까운 동네 '${p.name}'(으)로 정했어요. 위치는 기기 밖으로 보내지 않아요.`;
-      }, e => {
-        locBtn.disabled = false; locBtn.textContent = '내 동네 학교로';
-        info.textContent = e.code === 1 ? '위치 권한이 없어서 기본 이름을 써요. 직접 고쳐도 돼요.' : '위치를 찾지 못했어요. 직접 입력해 주세요.';
-      }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 3600000 });
-    } }, '내 동네 학교로');
+      }, () => {}, { enableHighAccuracy: false, timeout: 10000, maximumAge: 3600000 });
+    }
     const ok = () => {
       const v = input.value.replace(/\s/g, '');
       if (!v.length) { err.textContent = '이름을 입력해 주세요.'; input.focus(); return; }
@@ -131,8 +124,7 @@ function askName() {
       h('div', { class: 'idcard-row' }, h('span', {}, '학년'), h('b', {}, '1학년'), h('span', { class: 'gap' }), h('span', {}, '생년'), h('b', {}, '1987년')),
       h('label', { class: 'idcard-row' }, h('span', {}, '이름'), input),
       h('label', { class: 'idcard-row' }, h('span', {}, '학교'), school),
-      h('div', { class: 'idcard-row' }, h('span', {}), locBtn),
-      info, err,
+      err,
     ), [h('button', { class: 'btn', onclick: () => resolve(null) }, '취소'), h('button', { class: 'btn primary', onclick: ok }, '확인')]));
     document.getElementById('panel').className = 'tall';
     setTimeout(() => input.focus(), 50);
