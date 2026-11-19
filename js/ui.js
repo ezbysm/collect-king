@@ -56,7 +56,18 @@ const UI = (() => {
   }
 
   let lastDraw = 0;
+  // 화면 아래쪽 배경화면: 계절·장면에 따라 바뀐다
+  let wallKind = '';
+  function updateWallpaper() {
+    const kind = sceneMode === 'title' || !G.s ? 'title' : sceneMode === 'future' ? 'future'
+      : Art.seasonOf(dateOf(Math.min(G.s.turn, TOTAL_TURNS - 1)).m);
+    if (kind === wallKind) return;
+    wallKind = kind;
+    document.getElementById('app').style.backgroundImage = `url(${Art.wallpaper(kind)})`;
+  }
+
   function renderScene(t) {
+    updateWallpaper();
     if (t - lastDraw < 66) return; // 15fps면 충분
     lastDraw = t;
     if (sceneMode === 'title') Art.drawTitle(sctx, t);
