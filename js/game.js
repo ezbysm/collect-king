@@ -224,8 +224,8 @@ const MEDIA_MAX = Object.fromEntries(Object.entries(MEDIA).map(([k, types]) =>
 // 엔딩 판정 기준
 const ENDING_RULES = {
   minTopGenre: 60,       // 1위 장르 점수가 이보다 낮으면 평범한 직장인
-  legendTotal: 400,      // 전설의 수집왕: 수집 점수
-  legendCompleted: 15,   // 전설의 수집왕: 완결 작품 수
+  legendTotal: 500,      // 전설의 수집왕: 수집 점수
+  legendCompleted: 20,   // 전설의 수집왕: 완결 작품 수
   minMediaPts: 40,       // 매체 1위가 되려면 그 매체에서 최소 이만큼 (게임 CD 6장, 음악 10장, 애니 27화, 만화 40권 정도)
 };
 // 아카이버(기본)일 때: 1위 장르 × 가장 많이 모은 매체
@@ -253,7 +253,7 @@ function decideEnding(s) {
   const g = t.top;
   if (t.methodKey === 'archiver' && t.breadth === 'omni' && t.total >= ENDING_RULES.legendTotal && t.completed >= ENDING_RULES.legendCompleted) return 'legend';
   switch (t.methodKey) {
-    case 'artisan': return (g === 'sf' || g === 'hot') ? 'gamedev' : 'webtoon';
+    case 'artisan': return g === 'sf' ? 'gamedev' : 'webtoon';
     case 'sharer':
       if (g === 'hot' || g === 'sf') return 'yongsan';
       if (g === 'life' || g === 'fan') return 'teacher';
