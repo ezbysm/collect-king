@@ -234,7 +234,7 @@ const ENDING_RULES = {
   legendTotal: 500,      // 전설의 수집왕: 수집 점수
   legendCompleted: 20,   // 전설의 수집왕: 완결 작품 수
   omniShare: 0.22,       // 1위 장르 비율이 이보다 낮으면 잡식가
-  deepShare: 0.6,        // 1위 장르 비율이 이보다 높으면 한 우물
+  deepShare: 0.55,       // 1위 장르 비율이 이보다 높으면 한 우물
   completerMaxWorks: 12, // 완결주의자 후보: 모은 작품 수 상한
   completerMinDone: 8,   // 완결주의자 후보: 완결 작품 수 하한
   minMediaPts: 40,       // 매체 1위가 되려면 그 매체에서 최소 이만큼 (게임 CD 6장, 음악 10장, 애니 27화, 만화 40권 정도)

@@ -28,6 +28,8 @@ python3 -m http.server 8000
 | `js/story.js` | 프롤로그, 월별 이벤트, 히로인 이야기, 졸업식, 엔딩 |
 | `js/main.js` | 타이틀, 허브, 일정, 활동, 위험·회복 이벤트 |
 
+| `tools/schedule.js` | 작품 등장 시기를 고르게 다시 배치 (`--write`로 data.js에 반영) |
+| `tools/works.js` | works.md(작품 목록) 다시 만들기 |
 | `tools/sim.js` | 밸런스 시뮬레이터: `node tools/sim.js 2` 로 목표별 자동 플레이 결과와 엔딩 분포 출력 |
 
 글꼴: [Galmuri](https://github.com/quiple/galmuri) (SIL Open Font License 1.1)

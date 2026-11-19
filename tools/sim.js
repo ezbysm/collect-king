@@ -36,6 +36,7 @@ function makePolicy(goal, api) {
       sc += W.owned(s, w.id) > 0 ? 10 : 0; // 시작한 건 끝내기
     } else if (goal.kind === 'completer') {
       sc += Math.min(w.units * pts, 60) * 0.5; // 큰 시리즈를 골라 끝까지
+      if (goal.genre && w.genres.length === 1 && w.genres[0] === goal.genre) sc += 40; // 순수하게 그 장르인 작품
       sc += W.owned(s, w.id) > 0 ? 30 : 0;
       sc += matchGenre(w) ? 20 : 0;
     } else {
