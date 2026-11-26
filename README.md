@@ -7,6 +7,7 @@
 - 기획 문서: [plan.md](plan.md)
 - 등장 작품 목록: [works.md](works.md)
 - GBA판 롬: [gba/collect-king.gba](gba/collect-king.gba) — 설명은 [gba/README.md](gba/README.md)
+- NDS판(1단계 시험 롬): [nds/](nds/)
 
 ## 실행
 

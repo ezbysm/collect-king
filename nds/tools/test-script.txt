@@ -1,0 +1,58 @@
+# 1단계 시험: 타이틀 → 이름(터치 키보드) → 대사 → 선택지 → 타이틀 → 입력 확인
+# 대사는 다 나올 때까지 기다린 뒤 한 번씩 눌러 넘긴다
+wait 120
+shot build/test-01-title.png
+touch 128 62 4
+wait 30
+# ㅁ ㅣ ㄴ ㅅ ㅓ ㅇ → 민성
+touch 163 57 3
+wait 6
+touch 91 129 3
+wait 6
+touch 67 57 3
+wait 6
+touch 235 57 3
+wait 6
+touch 115 105 3
+wait 6
+touch 43 81 3
+wait 40
+shot build/test-02-keyboard.png
+touch 132 153 4
+wait 90
+shot build/test-03-narr.png
+touch 128 100 3
+wait 90
+touch 128 100 3
+wait 90
+shot build/test-04-mom.png
+touch 128 100 3
+wait 90
+shot build/test-05-her.png
+touch 128 100 3
+wait 30
+shot build/test-06-choice.png
+touch 128 130 4
+wait 90
+shot build/test-07-reply.png
+touch 128 100 3
+wait 90
+touch 128 100 3
+wait 60
+# 타이틀 → 입력 확인
+touch 128 122 4
+wait 30
+drag 30 40 120 140 20
+drag 120 140 220 50 20
+release
+press A 2
+drag 40 120 180 120 15
+release
+hold A+X+L+UP
+pen 100 80
+wait 6
+shot build/test-08-input.png
+release
+touch 220 155 4
+wait 30
+shot build/test-09-title.png
