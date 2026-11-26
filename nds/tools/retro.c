@@ -168,7 +168,42 @@ int main(int argc, char **argv) {
       if (ram && off + 16 <= sz) { printf("%08x:", x); for (int i = 0; i < 16; i += 2) printf(" %04x", ram[off + i] | ram[off + i + 1] << 8); printf("\n"); }
       else printf("peek: no memory (%p, %zu)\n", (void *)ram, sz);
     }
+    else if (!strcmp(cmd, "auto")) {
+      // auto SEED [SHOTDIR EVERY]: 무작위로 누르며 한 판을 끝까지 (AUTOTEST 빌드 필요)
+      int seed = 1, every = 0; char dir[256] = "";
+      sscanf(line, "%*s %d %255s %d", &seed, dir, &every);
+      srand(seed);
+      int last = -1, maxt = -1; long since = 0, total = 0, shots = 0;
+      for (long step = 0; step < 2000000; step++) {
+        int v = 0;
+        for (int i = 0; i < 8; i++) if (rgb[(192 * 256 + 248 + i) * 3] > 128) v |= 1 << i;
+        if (v != last) { printf("turn %d at frame %ld\n", v == 255 ? -1 : v, total); fflush(stdout); last = v; since = 0; if (v != 255 && v > maxt) maxt = v; }
+        if (maxt >= 36 && v == 255) break;
+        if (since > 60 * 60 * 6) { printf("STUCK at turn %d\n", v); if (dir[0]) { char p[300]; snprintf(p, sizeof p, "%s/stuck.png", dir); save_png(p); } return 1; }
+        int r = rand() % 100, n = 4;
+        if (r < 55) joy = 1u << 8;                 // A
+        else if (r < 63) joy = 1u << 3;            // START
+        else if (r < 69) joy = 1u << 5;            // DOWN
+        else if (r < 73) joy = 1u << 7;            // RIGHT
+        else if (r < 75) joy = 1u << 11;           // R
+        else if (r < 80) joy = 1u << 0;            // B
+        else if (r < 97) {                         // 아래 화면 아무 데나 터치
+          int tx = rand() % 256, ty = rand() % 192;
+          ptr_x = (int)((tx + 0.5) * 65536 / vw) - 32768; ptr_y = (int)((ty + 192 + 0.5) * 65536 / vh) - 32768; ptr_down = 1;
+        } else n = 3;
+        for (int i = 0; i < n; i++) { run(); total++; since++; if (every && dir[0] && total % every == 0) { char p[300]; snprintf(p, sizeof p, "%s/%07ld.png", dir, total); save_png(p); } }
+        joy = 0; ptr_down = 0;
+        for (int i = 0; i < 4; i++) { run(); total++; since++; }
+        (void)shots;
+      }
+      printf("done: frames %ld (%.1f분)\n", total, total / 3600.0);
+    }
     else if (!strcmp(cmd, "size")) printf("video %ux%u fmt %d\n", vw, vh, fmt);
   }
+  // 끝: 코어가 저장 파일(.dsv)을 쓰도록 정리
+  SYM(void(void), retro_unload_game);
+  SYM(void(void), retro_deinit);
+  retro_unload_game();
+  retro_deinit();
   return 0;
 }

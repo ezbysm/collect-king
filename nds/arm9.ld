@@ -7,7 +7,7 @@ MEMORY {
   dtcm : ORIGIN = 0x0B000000, LENGTH = 16K
 }
 SECTIONS {
-  .text : { KEEP(*(.crt0)) *(.text .text.*) *(.rodata .rodata.*) . = ALIGN(4); } > ram
+  .text : { KEEP(*(.secure)) KEEP(*(.crt0)) *(.text .text.*) *(.rodata .rodata.*) . = ALIGN(4); } > ram
   .itcm : { __itcm_start = .; *(.itcm .itcm.*) . = ALIGN(4); __itcm_end = .; } > itcm AT > ram
   __itcm_lma = LOADADDR(.itcm);
   .data : { *(.data .data.*) . = ALIGN(4); } > ram

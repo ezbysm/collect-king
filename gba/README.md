@@ -59,6 +59,8 @@ cd gba && make assets
 `tools/make-data.js`는 웹판 `js/data.js`와 같은 작품·장르·엔딩 표를 C로 옮깁니다. 웹판 데이터를 고친 뒤 `make assets`를 다시 돌리면 GBA판에도 반영됩니다.
 
 ## 구조
+게임 규칙·이야기·활동(`game.h`, `game.c`, `activity.c`, `story.c`, `text.c`, `data_gen.c`)은 NDS판([`../nds`](../nds))과 함께 씁니다.
+
 | 파일 | 내용 |
 |---|---|
 | `src/crt0.s`, `gba.ld` | 시작 코드, 롬 헤더, 메모리 배치 |
@@ -66,7 +68,8 @@ cd gba && make assets
 | `src/ui.c` | 대화창, 선택지, 알림, 진행 막대, 작품 고르기, 한글 키보드 |
 | `src/scene.c` | 방 장면 (계절 배경 + 수집품) |
 | `src/game.c` | 게임 상태, 규칙, 성향·엔딩 계산, SRAM 저장 |
-| `src/play.c` | 메인 화면, 일정 짜기, 활동, 위험 이벤트, 컬렉션·내 컴퓨터 |
+| `src/activity.c` | (공통) 활동, 위험 이벤트, 월말 정리, 한 판의 흐름, 컬렉션, 기록, 새 게임 |
+| `src/play.c` | 메인 화면, 일정 짜기, 내 컴퓨터, 도움말, 시작 |
 | `src/story.c` | 프롤로그, 달별 이벤트, 졸업, 엔딩 |
 | `src/sound.c` | 배경음과 효과음 |
 | `src/text.c` | 조사(이/가), 돈·용량 표기 |

@@ -1,4 +1,5 @@
 // ARM9·ARM7 바이너리(와 배너)를 묶어 .nds 롬을 만든다.
+// 상품판 카드와 같은 배치(ARM9는 0x4000, 앞 2KB 보안 영역)로 만들어 에뮬레이터·플래시 카트리지가 저장 칩을 붙여 주게 한다.
 // 사용법: node tools/mkrom.js out.nds arm9.bin arm7.bin [banner.bin]
 'use strict';
 const fs = require('fs');
@@ -16,8 +17,8 @@ function crc16(buf, start, end) {   // CRC-16 (MODBUS: 다항식 0xA001, 초기�
 }
 const align = (n, a) => (n + a - 1) & ~(a - 1);
 
-// 배치: 헤더(0x200) | ARM9 | ARM7 | 파일 이름 표(FNT) | 배너
-let pos = 0x200;
+// 배치: 헤더(0x200) | (빈칸) | ARM9(0x4000~, 앞 2KB는 보안 영역) | ARM7 | 파일 이름 표(FNT) | 배너
+let pos = 0x4000;
 const a9off = pos; pos = align(pos + a9.length, 0x200);
 const a7off = pos; pos = align(pos + a7.length, 0x200);
 const fntoff = pos; const fnt = Buffer.from([8, 0, 0, 0, 0, 0, 1, 0, 0]); pos = align(pos + fnt.length, 0x200);
@@ -30,11 +31,11 @@ const rom = Buffer.alloc(align(used, 4), 0);
 
 const h = rom;
 h.write('COLLECTKING', 0, 'ascii');   // 제목 (12바이트)
-h.write('####', 0x0C, 'ascii');        // 게임 코드: 홈브루 관례
+h.write('ZSJW', 0x0C, 'ascii');        // 게임 코드 (상품 게임과 겹치지 않는 Z로 시작)
 h.write('00', 0x10, 'ascii');          // 제작사
 h[0x12] = 0;                           // NDS 전용
 h[0x14] = cap;                         // 롬 크기 = 128KB << cap
-h.writeUInt32LE(a9off, 0x20); h.writeUInt32LE(0x02000000, 0x24); h.writeUInt32LE(0x02000000, 0x28); h.writeUInt32LE(a9.length, 0x2C);
+h.writeUInt32LE(a9off, 0x20); h.writeUInt32LE(0x02000800, 0x24); h.writeUInt32LE(0x02000000, 0x28); h.writeUInt32LE(a9.length, 0x2C);
 h.writeUInt32LE(a7off, 0x30); h.writeUInt32LE(0x03800000, 0x34); h.writeUInt32LE(0x03800000, 0x38); h.writeUInt32LE(a7.length, 0x3C);
 h.writeUInt32LE(fntoff, 0x40); h.writeUInt32LE(fnt.length, 0x44);
 h.writeUInt32LE(fatoff, 0x48); h.writeUInt32LE(0, 0x4C);
@@ -47,6 +48,7 @@ h.writeUInt32LE(0x4000, 0x84);         // 헤더 크기
 // 0xC0~0x15B 닌텐도 로고 자리는 비워 둔다 (플래시 카트리지·에뮬레이터는 확인하지 않음)
 h.writeUInt16LE(0xCF56, 0x15C);        // 로고 CRC 값 자리
 a9.copy(rom, a9off); a7.copy(rom, a7off); fnt.copy(rom, fntoff);
+h.writeUInt16LE(crc16(rom, 0x4000, 0x8000), 0x6C);   // 보안 영역 CRC
 if (banner) banner.copy(rom, banoff);
 h.writeUInt16LE(crc16(rom, 0, 0x15E), 0x15E);
 fs.writeFileSync(out, rom);

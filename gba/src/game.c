@@ -4,8 +4,10 @@
 State S EWRAM_BSS;
 Meta META EWRAM_BSS;
 
+#ifndef NDS
 // 에뮬레이터가 SRAM 세이브를 알아보도록 넣는 표시
 const char SAVE_TYPE[] __attribute__((aligned(4))) = "SRAM_V113";
+#endif
 
 const char *const MEDIA_NAMES[4] = { "게임", "영상(애니·영화)", "책(만화·소설)", "음악" };
 const char *const METHOD_NAMES[4] = { "아카이버", "손품장인", "나눔꾼", "완결주의자" };
@@ -266,11 +268,19 @@ void new_game(const char *name, const char *school) {
 // ---------- 저장 (SRAM) ----------
 #define META_AT 0
 #define SAVE_AT 512
+#ifdef NDS
+// NDS판: 카드 저장 칩 (nds/src/arm9/save.c)
+#define sram_write save_mem_write
+#define sram_read save_mem_read
+#else
 static void sram_write(int at, const void *src, int n) { const u8 *p = src; for (int i = 0; i < n; i++) SRAM[at + i] = p[i]; }
 static void sram_read(int at, void *dst, int n) { u8 *p = dst; for (int i = 0; i < n; i++) p[i] = SRAM[at + i]; }
+#endif
 
 int save_exists(void) {
+#ifndef NDS
   volatile const char *t = SAVE_TYPE; (void)t[0];
+#endif
   u32 m; sram_read(SAVE_AT, &m, 4);
   return m == 0x4B4A5331;
 }

@@ -1,18 +1,11 @@
-// 수집왕 NDS — ARM9 공통 정의: 하드웨어, 화면, 입력, 글자
+// 수집왕 NDS — 기종 부분 (gba/src/common.h가 NDS로 빌드할 때 불러온다)
+// 게임 규칙·이야기의 공통 정의는 gba/src/game.h
 #pragma once
 #include "art_data.h"
 #include "font.h"
 #include "../shared.h"
 
-typedef unsigned char u8;
-typedef unsigned short u16;
-typedef unsigned int u32;
-typedef signed short s16;
-typedef int s32;
-
 // ---------- 하드웨어 ----------
-#define REG_DISPCNT     (*(volatile u32 *)0x04000000)
-#define REG_DISPCNT_SUB (*(volatile u32 *)0x04001000)
 #define REG_VCOUNT      (*(volatile u16 *)0x04000006)
 #define REG_KEYINPUT    (*(volatile u16 *)0x04000130)
 #define REG_POWCNT1     (*(volatile u32 *)0x04000304)
@@ -24,6 +17,7 @@ typedef int s32;
 #define SCREEN_H 192
 #define VRAM_TOP ((u16 *)0x06000000)
 #define VRAM_BOT ((u16 *)0x06200000)
+#define TASKBAR_Y (SCREEN_H - 20)   // 아래 화면 작업 표시줄 위쪽
 
 // 버튼 (KEYINPUT 10비트 + ARM7이 넘겨준 X·Y)
 #define KEY_A      0x0001
@@ -42,8 +36,7 @@ typedef int s32;
 
 // 색: NDS 비트맵은 맨 윗비트(0x8000)가 1이어야 보인다
 #define RGB(r, g, b) ((u16)(0x8000 | ((r) >> 3) | (((g) >> 3) << 5) | (((b) >> 3) << 10)))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define EWRAM_BSS   // NDS: 메인 RAM 하나뿐
 #define ITCM __attribute__((section(".itcm"), target("arm"), noinline, long_call))
 
 #define C_WHITE  RGB(255, 255, 255)
@@ -55,6 +48,7 @@ typedef int s32;
 #define C_GRAY   RGB(110, 110, 130)
 #define C_GREEN  RGB(120, 230, 140)
 #define C_RED    RGB(255, 120, 120)
+#define C_INFO   RGB(150, 200, 220)
 // 윈도우 98 색 (아래 화면)
 #define W_FACE   RGB(192, 192, 192)
 #define W_LIGHT  RGB(255, 255, 255)
@@ -64,6 +58,8 @@ typedef int s32;
 #define W_NAVY   RGB(0, 0, 128)
 #define W_TEXT   RGB(0, 0, 0)
 #define W_GRAYTX RGB(128, 128, 128)
+#define W_RED    RGB(170, 0, 0)
+#define W_BLUE   RGB(0, 0, 160)
 
 // ---------- 화면 (gfx.c) ----------
 // 화면마다 VRAM(보이는 곳)과 뒤판(배경을 기억해 두는 곳)이 있다
@@ -71,23 +67,25 @@ typedef struct { u16 *vram; u16 *bb; } Screen;
 extern Screen TOP, BOT;
 void gfx_init(void);
 void vsync(void);
-extern u32 frame_count;
 void present(Screen *s);                                   // 뒤판 전체를 화면으로
+extern int top_overlay;                                    // 위 화면에 장면 말고 다른 창이 덮여 있다
 void restore(Screen *s, int x, int y, int w, int h);       // 뒤판의 일부를 화면으로
 void copy_image(u16 *dst, const u16 *src);                 // 256x192 그림 한 장
 ITCM void fill(u16 *dst, int x, int y, int w, int h, u16 c);
 ITCM void blend_dark(Screen *s, int x, int y, int w, int h);
 void draw_img(u16 *dst, int x, int y, int w, int h, const u16 *img);
 void draw_face(u16 *dst, int x, int y, int who, int expr);
+void draw_icon(u16 *dst, int x, int y, int type, int done);
 void dark_box(Screen *s, int x0, int y0, int x1, int y1);          // 반투명 남색 창 (위 화면)
 void dark_title_box(Screen *s, int x0, int y0, int x1, int y1, const char *title);
 void win_frame(u16 *dst, int x, int y, int w, int h, int sunken); // 윈도우 98 테두리
 void win_window(u16 *dst, int x, int y, int w, int h, const char *title);
 void win_button(u16 *dst, int x, int y, int w, int h, const char *label, int state); // 0 보통, 1 고름, 2 눌림, 3 못 씀
-void desktop(Screen *s, const char *clock);                       // 아래 화면 바탕화면 + 작업 표시줄
+void win_bar(u16 *dst, int x, int y, int w, int h, int val, int max, u16 color);     // 움푹한 칸 속 막대
+void desktop(const char *clock);                                  // 아래 화면 바탕화면 + 작업 표시줄 (뒤판과 화면 모두)
+void digits3x5(u16 *dst, int x, int y, int n, u16 c);
 
 // ---------- 글자 ----------
-u32 utf8_next(const char **p);
 int glyph_width(u32 cp);
 int text_w(const char *s);
 int draw_text(u16 *dst, int x, int y, const char *s, u16 color);          // 그림자 있음
@@ -96,8 +94,8 @@ const char *draw_wrapped(u16 *dst, int x, int y, int w, int max_lines, const cha
 int count_lines(int w, const char *s);
 #define LINE_H 15
 void put_utf8(char *o, int *at, u32 cp);
-const char *fmt(const char *f, ...);
-const char *josa(const char *word, const char *pair);
+const char *mbstr(s32 mb);
+const char *wonstr(s32 n);
 
 // ---------- 입력 ----------
 void poll_input(void);
@@ -107,3 +105,20 @@ extern int touch_x, touch_y, touch_down;   // 지금 누르는 자리
 extern int tap_x, tap_y;                   // 마지막으로 누른 순간의 자리
 extern u16 raw_tx, raw_ty;
 int tapped_in(int x, int y, int w, int h); // 이번 프레임에 이 칸을 눌렀나
+void wait_frames(int n);
+// 기다리는 동안 공통으로: SELECT로 소리 켜고 끄기
+void frame(void);
+
+// ---------- 저장 (save.c): 카드 저장 칩 (EEPROM) ----------
+void save_mem_read(int at, void *dst, int n);
+void save_mem_write(int at, const void *src, int n);
+
+// ---------- 아래 화면 상태 (ui.c) ----------
+// 아래 화면에 지금 무엇이 그려져 있는지 (같은 걸 다시 그리지 않도록)
+enum { BOT_NONE, BOT_SAY, BOT_OTHER };
+extern int bottom_mode;
+void bottom_desktop(void);
+const char *clock_str(void);
+extern int top_scene;
+extern u32 scene_key;
+u32 status_key(void);

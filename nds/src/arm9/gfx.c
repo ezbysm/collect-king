@@ -1,6 +1,6 @@
 // 수집왕 NDS — 두 화면 출력, 창, 글자, 입력
 #include <stdarg.h>
-#include "nds.h"
+#include "common.h"
 
 static u16 bb_top[SCREEN_W * SCREEN_H] __attribute__((aligned(32)));
 static u16 bb_bot[SCREEN_W * SCREEN_H] __attribute__((aligned(32)));
@@ -51,13 +51,35 @@ void vsync(void) {
   while (REG_VCOUNT < 192) {}
   frame_count++;
 }
+void frame(void) {
+  vsync(); poll_input();
+#ifdef AUTOTEST
+  // 시험용: 지금 몇 번째 달인지 아래 화면 오른쪽 위 8픽셀에 (흰색 = 1)
+  { extern State S; int v = S.magic ? S.turn : 255; for (int i = 0; i < 8; i++) VRAM_BOT[248 + i] = (v >> i) & 1 ? 0xFFFF : 0x8000; }
+#endif
+  if (pressed(KEY_SELECT)) sound_toggle();
+}
+void wait_frames(int n) { while (n--) frame(); }
+
+// 두 화면 모두 천천히 어둡게/밝게 (밝기 조절 레지스터)
+#define REG_MASTER_BRIGHT     (*(volatile u16 *)0x0400006C)
+#define REG_MASTER_BRIGHT_SUB (*(volatile u16 *)0x0400106C)
+void fade(int dir) {
+  for (int i = 0; i <= 16; i++) {
+    int v = dir > 0 ? i : 16 - i;
+    u16 r = (u16)(v ? (2 << 14) | v : 0);
+    REG_MASTER_BRIGHT = r; REG_MASTER_BRIGHT_SUB = r;
+    vsync();
+  }
+}
 
 // ---------- 그리기 ----------
 static void copy32(void *dst, const void *src, int bytes) {
   u32 *d = dst; const u32 *s = src;
   for (int i = 0; i < bytes / 4; i++) d[i] = s[i];
 }
-void present(Screen *s) { copy32(s->vram, s->bb, SCREEN_W * SCREEN_H * 2); }
+int top_overlay;
+void present(Screen *s) { copy32(s->vram, s->bb, SCREEN_W * SCREEN_H * 2); if (s == &TOP) top_overlay = 0; }
 void copy_image(u16 *dst, const u16 *src) { copy32(dst, src, SCREEN_W * SCREEN_H * 2); }
 void restore(Screen *s, int x, int y, int w, int h) {
   int x0 = MAX(0, x), x1 = MIN(SCREEN_W, x + w), y1 = MIN(SCREEN_H, y + h);
@@ -84,6 +106,23 @@ static void pset(u16 *dst, int x, int y, u16 c) { if ((unsigned)x < SCREEN_W && 
 void draw_img(u16 *dst, int x, int y, int w, int h, const u16 *img) {
   for (int yy = 0; yy < h; yy++)
     for (int xx = 0; xx < w; xx++) { u16 c = img[yy * w + xx]; if (c & 0x8000) pset(dst, x + xx, y + yy, c); }
+}
+void draw_icon(u16 *dst, int x, int y, int type, int done) { draw_img(dst, x, y, 16, 16, ART_ICONS + (type * 2 + (done ? 1 : 0)) * 256); }
+void win_bar(u16 *dst, int x, int y, int w, int h, int val, int max, u16 color) {
+  fill(dst, x, y, w, h, C_WHITE);
+  win_frame(dst, x, y, w, h, 1);
+  int f = max > 0 ? (int)((long long)MIN(val, max) * (w - 4) / max) : 0;
+  if (f > 0) fill(dst, x + 2, y + 2, f, h - 4, color);
+}
+static const char *const DIG[10] = {
+  "111101101101111", "010110010010111", "111001111100111", "111001111001111", "101101111001001",
+  "111100111001111", "111100111101111", "111001010010010", "111101111101111", "111101111001111",
+};
+void digits3x5(u16 *dst, int x, int y, int n, u16 c) {
+  char buf[8]; int len = 0;
+  do { buf[len++] = '0' + n % 10; n /= 10; } while (n && len < 7);
+  for (int i = len - 1; i >= 0; i--, x += 4)
+    for (int k = 0; k < 15; k++) if (DIG[buf[i] - '0'][k] == '1') pset(dst, x + k % 3, y + k / 3, c);
 }
 void draw_face(u16 *dst, int x, int y, int who, int expr) {
   draw_img(dst, x, y, 40, 40, ART_FACES + (who * 6 + expr) * 1600);
@@ -127,7 +166,8 @@ void win_button(u16 *dst, int x, int y, int w, int h, const char *label, int sta
   draw_text_flat(dst, x + (w - tw) / 2 + o, y + (h - 13) / 2 + o, label, c);
 }
 // 아래 화면: 청록색 바탕화면과 작업 표시줄
-void desktop(Screen *s, const char *clock) {
+void desktop(const char *clock) {
+  Screen *s = &BOT;
   u16 *d = s->bb;
   fill(d, 0, 0, SCREEN_W, SCREEN_H - 20, W_DESK);
   fill(d, 0, SCREEN_H - 20, SCREEN_W, 20, W_FACE);
@@ -224,41 +264,3 @@ const char *draw_wrapped(u16 *dst, int x, int y, int w, int max_lines, const cha
 }
 int count_lines(int w, const char *s) { int n; wrap_core(0, 0, 0, w, 99, s, 0, 0, &n); return n ? n : 1; }
 
-// ---------- 문장 다듬기 ----------
-static char pool[16][256];
-static int pool_i;
-static int put(char *dst, int at, const char *s) { while (*s && at < 254) dst[at++] = *s++; dst[at] = 0; return at; }
-static int put_int(char *dst, int at, int v) {
-  char tmp[12]; int n = 0; unsigned u = v < 0 ? -v : v;
-  do { tmp[n++] = '0' + u % 10; u /= 10; } while (u);
-  if (v < 0) dst[at++] = '-';
-  while (n) dst[at++] = tmp[--n];
-  dst[at] = 0; return at;
-}
-const char *fmt(const char *f, ...) {
-  pool_i = (pool_i + 1) % 16;
-  char *o = pool[pool_i]; int at = 0;
-  va_list ap; va_start(ap, f);
-  while (*f && at < 250) {
-    if (*f != '%') { o[at++] = *f++; continue; }
-    f++;
-    switch (*f++) {
-      case 's': at = put(o, at, va_arg(ap, const char *)); break;
-      case 'd': at = put_int(o, at, va_arg(ap, int)); break;
-      case '%': o[at++] = '%'; break;
-    }
-  }
-  o[at] = 0; va_end(ap);
-  return o;
-}
-const char *josa(const char *word, const char *pair) {
-  const char *p = word; u32 cp = 0;
-  while (*p) cp = utf8_next(&p);
-  int bat = cp >= 0xAC00 && cp <= 0xD7A3 && (cp - 0xAC00) % 28 != 0;
-  const char *slash = pair; while (*slash && *slash != '/') slash++;
-  char a[16]; int n = 0;
-  if (bat) { for (const char *q = pair; q < slash && n < 15; q++) a[n++] = *q; }
-  else { for (const char *q = *slash ? slash + 1 : pair; *q && n < 15; q++) a[n++] = *q; }
-  a[n] = 0;
-  return fmt("%s%s", word, a);
-}

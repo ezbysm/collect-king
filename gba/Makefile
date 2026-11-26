@@ -8,7 +8,7 @@ ARCH    = -mthumb -mthumb-interwork -mcpu=arm7tdmi
 CFLAGS  = $(ARCH) -O2 -Wall -ffreestanding -std=gnu11 -ffunction-sections -fdata-sections
 LDFLAGS = $(ARCH) -nostartfiles -T gba.ld -Wl,--gc-sections
 
-SRC  = src/play.c src/story.c src/ui.c src/scene.c src/game.c src/gfx.c src/text.c src/sound.c src/data_gen.c src/font_data.c src/bg_data.c
+SRC  = src/play.c src/activity.c src/story.c src/ui.c src/scene.c src/game.c src/gfx.c src/text.c src/sound.c src/data_gen.c src/font_data.c src/bg_data.c
 OBJ  = $(SRC:src/%.c=build/%.o) build/crt0.o
 ROM  = build/collect-king.gba
 

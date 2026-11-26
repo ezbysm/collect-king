@@ -1,6 +1,12 @@
 @ 수집왕 NDS — ARM9 시작 코드
 @ 보호 장치(MPU)로 메모리 구역을 나누고 캐시와 TCM을 켠 뒤, ITCM 코드를 옮기고 bss를 비우고 main으로 간다.
 @ 메인 RAM 0x02000000~0x023FFFFF는 캐시를 쓰고, 그 거울 주소(0x02400000~)는 캐시 없이 ARM7과 주고받는 데 쓴다.
+@ 롬 상품판과 같은 모양: ARM9 앞 2KB는 '보안 영역' 자리. 이미 풀린 상태 표시(E7FFDEFF x2)만 두고 비워 둔다.
+@ (에뮬레이터가 이 롬을 홈브루가 아닌 게임 카드로 보고 저장 칩을 붙여 주도록)
+  .section .secure, "a"
+  .word 0xE7FFDEFF, 0xE7FFDEFF
+  .space 0x800 - 8, 0
+
   .section .crt0, "ax"
   .arm
   .global _start

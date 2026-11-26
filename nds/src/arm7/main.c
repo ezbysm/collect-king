@@ -45,8 +45,12 @@ static void load_calibration(void) {
 }
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
 
+void sound7_init(void);
+void sound7_frame(void);
+
 int main(void) {
   load_calibration();
+  sound7_init();
   Shared *sh = SHARED;
   sh->pen = 0; sh->xy = 0;
   for (;;) {
@@ -70,5 +74,6 @@ int main(void) {
     }
     sh->pen = down;
     sh->frame++;
+    sound7_frame();
   }
 }

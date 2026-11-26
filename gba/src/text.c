@@ -46,13 +46,14 @@ static int put_int(char *dst, int at, s32 v, int commas) {
   return at;
 }
 
-const char *wonstr(s32 n) { char *o = next_buf(); int at = put(o, 0, "₩"); put_int(o, at, n, 1); return o; }
-const char *mbstr(s32 mb) {
-  char *o = next_buf();
-  if (mb >= 1000) { int at = put_int(o, 0, mb / 1000, 0); o[at++] = '.'; o[at++] = '0' + (mb % 1000) / 100; o[at] = 0; put(o, at, "GB"); }
-  else { int at = put_int(o, 0, mb, 0); put(o, at, "MB"); }
-  return o;
+// 돈·용량을 버퍼의 at 자리에 바로 쓴다 (fmt 안에서 버퍼를 하나 더 쓰지 않도록)
+static int put_won(char *o, int at, s32 n) { at = put(o, at, "₩"); return put_int(o, at, n, 1); }
+static int put_mb(char *o, int at, s32 mb) {
+  if (mb >= 1000) { at = put_int(o, at, mb / 1000, 0); o[at++] = '.'; o[at++] = '0' + (mb % 1000) / 100; o[at] = 0; return put(o, at, "GB"); }
+  at = put_int(o, at, mb, 0); return put(o, at, "MB");
 }
+const char *wonstr(s32 n) { char *o = next_buf(); put_won(o, 0, n); return o; }
+const char *mbstr(s32 mb) { char *o = next_buf(); put_mb(o, 0, mb); return o; }
 
 // %s 문자열, %d 정수, %w 원(₩1,000), %m 용량(MB/GB), %% 퍼센트
 const char *fmt(const char *f, ...) {
@@ -66,8 +67,8 @@ const char *fmt(const char *f, ...) {
     switch (*f++) {
       case 's': at = put(o, at, va_arg(ap, const char *)); break;
       case 'd': at = put_int(o, at, va_arg(ap, int), 0); break;
-      case 'w': at = put(o, at, wonstr(va_arg(ap, int))); break;
-      case 'm': at = put(o, at, mbstr(va_arg(ap, int))); break;
+      case 'w': at = put_won(o, at, va_arg(ap, int)); break;
+      case 'm': at = put_mb(o, at, va_arg(ap, int)); break;
       case '%': o[at++] = '%'; break;
     }
   }
