@@ -15,6 +15,10 @@ const OUT = path.join(__dirname, '..', 'src', 'font_data.c');
 const chars = new Set();
 for (let c = 0x20; c < 0x7f; c++) chars.add(c);
 for (const ch of '…·▼▶◀★♥☾①②③「」『』~—–“”‘’') chars.add(ch.codePointAt(0));
+// 이름 입력 키보드로 어떤 글자든 만들 수 있도록 한글 음절 전체와 자모를 넣는다
+for (let cp = 0xac00; cp <= 0xd7a3; cp++) chars.add(cp);
+for (let cp = 0x3131; cp <= 0x3163; cp++) chars.add(cp);
+for (const ch of '₩→←↑↓○●□■◆♪☑☐') chars.add(ch.codePointAt(0));
 const sources = [
   ...fs.readdirSync(path.join(ROOT, 'js')).filter(f => f.endsWith('.js')).map(f => path.join(ROOT, 'js', f)),
   ...fs.readdirSync(path.join(ROOT, 'gba', 'src')).filter(f => f.endsWith('.c') && f !== 'font_data.c').map(f => path.join(ROOT, 'gba', 'src', f)),

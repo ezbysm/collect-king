@@ -6,7 +6,7 @@
 - 모바일 세로 화면용 웹 게임 (PC 브라우저에서도 실행)
 - 기획 문서: [plan.md](plan.md)
 - 등장 작품 목록: [works.md](works.md)
-- GBA판(진행 중): [gba/](gba/)
+- GBA판 롬: [gba/collect-king.gba](gba/collect-king.gba) — 설명은 [gba/README.md](gba/README.md)
 
 ## 실행
 
