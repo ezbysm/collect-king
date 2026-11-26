@@ -11,10 +11,13 @@ u16 keys_now, keys_prev;
 static u16 keys_hit, key_latch, key_last;
 // 매 프레임 새로 눌린 버튼을 모아 둔다 (인터럽트 없이: 어떤 에뮬레이터에서도 같게 동작하도록)
 __attribute__((long_call)) void latch_keys(void);
+// IWRAM에서 카트리지 쪽 함수를 부르려면 함수 포인터로 (주소가 멀어서)
+static void (*const sound_tick)(void) = sound_update;
 FAST void latch_keys(void) {
   u16 k = ~REG_KEYINPUT & 0x03FF;
   key_latch |= k & ~key_last;
   key_last = k;
+  sound_tick();   // 오래 그리는 동안에도 음악이 끊기지 않게
 }
 void poll_keys(void) {
   latch_keys();
@@ -26,21 +29,21 @@ void poll_keys(void) {
 int pressed(u16 k) { return keys_hit & k; }
 int held(u16 k) { return keys_now & k; }
 
-// 화면 갱신을 기다리며 소리를 움직이고, SELECT로 소리를 켜고 끈다
-void vsync(void) {
-  while (REG_VCOUNT >= 160) {}
-  while (REG_VCOUNT < 160) {}
-  frame_count++;
-  latch_keys();
-  sound_update();
-}
-
 static void dma_copy32(void *dst, const void *src, u32 words) {
   REG_DMA3CNT = 0;
   REG_DMA3SAD = (u32)src;
   REG_DMA3DAD = (u32)dst;
   REG_DMA3CNT = words | (1u << 26) | (1u << 31);
 }
+
+// 화면 갱신을 기다리며 소리를 움직이고, SELECT로 소리를 켜고 끈다
+void vsync(void) {
+  while (REG_VCOUNT >= 160) {}
+  while (REG_VCOUNT < 160) {}
+  frame_count++;
+  latch_keys();
+}
+void copy_full(u16 *dst, const u16 *src) { dma_copy32(dst, src, SCREEN_W * SCREEN_H / 2); latch_keys(); }
 
 void gfx_present(void) { dma_copy32(VRAM, bb, SCREEN_W * SCREEN_H / 2); }
 void gfx_restore(int y0, int y1) {
@@ -61,6 +64,7 @@ FAST void fill(u16 *dst, int x, int y, int w, int h, u16 c) {
   for (int yy = MAX(0, y); yy < y1; yy++) {
     u16 *p = dst + yy * SCREEN_W;
     for (int xx = x0; xx < x1; xx++) p[xx] = c;
+    if ((yy & 15) == 15) latch_keys();
   }
 }
 // 뒤판을 1/4 밝기로 줄이고 남색을 더해 반투명 창처럼

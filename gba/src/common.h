@@ -54,6 +54,7 @@ typedef int s32;
 // ---------- 화면 (gfx.c) ----------
 extern u16 bb[SCREEN_W * SCREEN_H];      // 장면 뒤판 (EWRAM)
 void vsync(void);
+void copy_full(u16 *dst, const u16 *src);   // 화면 한 장 복사 (DMA)
 void gfx_present(void);                  // 뒤판 전체를 화면으로
 void gfx_restore(int y0, int y1);        // 뒤판의 일부 줄을 화면으로
 void gfx_restore_rect(int x0, int y0, int x1, int y1);

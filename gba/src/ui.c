@@ -344,55 +344,64 @@ static const u16 KEYS[5][10] = {
   { 0x3162, 2, 2, 2, 2, 2, 2, 2, 2, 2 },
 };
 
+#define KB_KX 10
+#define KB_KY 60
+#define KB_CW 22
+#define KB_CH 17
+static void kb_key(int r, int c, int on) {
+  u16 k = KEYS[r][c];
+  if (k == 2 && c > 1) return;
+  if (k == 2) c = 1;
+  int x = KB_KX + c * KB_CW, y = KB_KY + r * KB_CH, w = k == 2 ? KB_CW * 9 : KB_CW;
+  fill(VRAM, x, y, w - 2, KB_CH - 2, on ? RGB(255, 230, 128) : RGB(200, 200, 210));
+  fill(VRAM, x, y + KB_CH - 3, w - 2, 1, RGB(120, 120, 140));
+  const char *label = k == 1 ? "←" : k == 2 ? "확인 (START)" : 0;
+  if (label) draw_text(VRAM, x + (w - 2 - text_w(label)) / 2, y + 1, label, RGB(20, 20, 40));
+  else { char t[4]; int a = 0; put_utf8(t, &a, k); draw_text(VRAM, x + 5, y + 1, t, RGB(20, 20, 40)); }
+}
+// 입력 칸 다시 그리기. 커서 x 위치를 돌려준다
+static int kb_field(int y0, const u16 *done, int nd, int cho, int jung, int jong) {
+  fill(VRAM, 10, y0 + 20, SCREEN_W - 20, 20, RGB(248, 248, 240));
+  char buf[64]; int at = 0; buf[0] = 0;
+  for (int i = 0; i < nd; i++) put_utf8(buf, &at, done[i]);
+  if (cho >= 0 && jung >= 0) put_utf8(buf, &at, 0xAC00 + (cho * 21 + jung) * 28 + jong);
+  else if (cho >= 0) put_utf8(buf, &at, CHO_CP[cho]);
+  else if (jung >= 0) put_utf8(buf, &at, 0x314F + jung);
+  return draw_text(VRAM, 16, y0 + 23, buf, RGB(20, 20, 40));
+}
+
 int keyboard(const char *title, char *out, int max_syl, const char *initial) {
   u16 done[12]; int nd = 0;
   const char *p = initial ? initial : "";
   while (*p && nd < max_syl) done[nd++] = (u16)utf8_next(&p);
   int cho = -1, jung = -1, jong = 0;
-  int cx = 0, cy = 0, dirty = 1;
-  const int y0 = 8, KX = 10, KY = 60, CW = 22, CH = 17;
+  int cx = 0, cy = 0;
+  const int y0 = 8;
+  // 처음 한 번만 전체를 그린다
+  clear_to(0);
+  draw_title_box(3, y0, SCREEN_W - 3, BOX_BOTTOM, title);
+  for (int r = 0; r < 5; r++) for (int c = 0; c < 10; c++) kb_key(r, c, r == cy && c == cx);
+  draw_text(VRAM, 10, BOX_BOTTOM - 15, "A 입력 · B 지우기 · START 확인", C_GRAY);
+  int ex = kb_field(y0, done, nd, cho, jung, jong), field_dirty = 0, blink = -1;
   for (;;) {
-    if (dirty) {
-      clear_to(0);
-      draw_title_box(3, y0, SCREEN_W - 3, BOX_BOTTOM, title);
-      // 입력 칸
-      fill(VRAM, 10, y0 + 20, SCREEN_W - 20, 20, RGB(248, 248, 240));
-      char buf[64]; int at = 0; buf[0] = 0;
-      for (int i = 0; i < nd; i++) put_utf8(buf, &at, done[i]);
-      if (cho >= 0 && jung >= 0) put_utf8(buf, &at, 0xAC00 + (cho * 21 + jung) * 28 + jong);
-      else if (cho >= 0) put_utf8(buf, &at, CHO_CP[cho]);
-      else if (jung >= 0) put_utf8(buf, &at, 0x314F + jung);
-      int ex = draw_text(VRAM, 16, y0 + 23, buf, RGB(20, 20, 40));
-      if ((frame_count & 32)) fill(VRAM, ex + 1, y0 + 24, 2, 12, RGB(20, 20, 40));
-      // 키
-      for (int r = 0; r < 5; r++)
-        for (int c = 0; c < 10; c++) {
-          u16 k = KEYS[r][c];
-          if (k == 2 && c > 1) continue;
-          int x = KX + c * CW, y = KY + r * CH, w = k == 2 ? CW * 9 : CW;
-          int on = (r == cy && (c == cx || (k == 2 && KEYS[cy][cx] == 2)));
-          fill(VRAM, x, y, w - 2, CH - 2, on ? RGB(255, 230, 128) : RGB(200, 200, 210));
-          fill(VRAM, x, y + CH - 3, w - 2, 1, RGB(120, 120, 140));
-          const char *label = k == 1 ? "←" : k == 2 ? "확인 (START)" : 0;
-          if (label) draw_text(VRAM, x + (w - 2 - text_w(label)) / 2, y + 1, label, RGB(20, 20, 40));
-          else { char t[4]; int a = 0; put_utf8(t, &a, k); draw_text(VRAM, x + 5, y + 1, t, RGB(20, 20, 40)); }
-        }
-      draw_text(VRAM, 10, BOX_BOTTOM - 15, "A 입력 · B 지우기 · START 확인", C_GRAY);
-      dirty = 0;
-    }
+    if (field_dirty) { ex = kb_field(y0, done, nd, cho, jung, jong); field_dirty = 0; blink = -1; }
+    // 커서 깜빡임: 커서 자리만 칠한다
+    int bl = (frame_count >> 5) & 1;
+    if (bl != blink) { fill(VRAM, ex + 1, y0 + 24, 2, 12, bl ? RGB(20, 20, 40) : RGB(248, 248, 240)); blink = bl; }
+    int ox = cx, oy = cy;
     vsync(); poll_keys();
-    if ((frame_count & 31) == 0) dirty = 1;   // 커서 깜빡임
     if (pressed(KEY_SELECT)) sound_toggle();
-    if (pressed(KEY_LEFT)) { cx = (cx + 9) % 10; if (KEYS[cy][cx] == 2) cx = 1; dirty = 1; sfx(SFX_MOVE); }
-    if (pressed(KEY_RIGHT)) { cx = (cx + 1) % 10; if (KEYS[cy][cx] == 2 && cx > 1) cx = 0; dirty = 1; sfx(SFX_MOVE); }
-    if (pressed(KEY_UP)) { cy = (cy + 4) % 5; if (KEYS[cy][cx] == 2) cx = 1; dirty = 1; sfx(SFX_MOVE); }
-    if (pressed(KEY_DOWN)) { cy = (cy + 1) % 5; if (KEYS[cy][cx] == 2) cx = 1; dirty = 1; sfx(SFX_MOVE); }
+    if (pressed(KEY_LEFT)) { cx = (cx + 9) % 10; if (KEYS[cy][cx] == 2) cx = 1; sfx(SFX_MOVE); }
+    if (pressed(KEY_RIGHT)) { cx = (cx + 1) % 10; if (KEYS[cy][cx] == 2 && cx > 1) cx = 0; sfx(SFX_MOVE); }
+    if (pressed(KEY_UP)) { cy = (cy + 4) % 5; if (KEYS[cy][cx] == 2) cx = 1; sfx(SFX_MOVE); }
+    if (pressed(KEY_DOWN)) { cy = (cy + 1) % 5; if (KEYS[cy][cx] == 2) cx = 1; sfx(SFX_MOVE); }
+    if (ox != cx || oy != cy) { kb_key(oy, ox, 0); kb_key(cy, cx, 1); }
     int key = 0;
     if (pressed(KEY_A)) key = KEYS[cy][cx];
     if (pressed(KEY_B)) key = 1;
     if (pressed(KEY_START)) key = 2;
     if (!key) continue;
-    sfx(SFX_CLICK); dirty = 1;
+    sfx(SFX_CLICK); field_dirty = 1;
     int composing = cho >= 0 || jung >= 0;
     if (key == 2) {
       // 조합 중인 글자를 확정하고 끝낸다

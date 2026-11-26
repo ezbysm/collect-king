@@ -91,8 +91,7 @@ void scene_status(void) {
 }
 
 void scene_room(void) {
-  const u16 *src = BG_ROOMS[season_of(MIN(S.turn, 35))];
-  for (int i = 0; i < SCREEN_W * SCREEN_H; i++) bb[i] = src[i];
+  copy_full(bb, BG_ROOMS[season_of(MIN(S.turn, 35))]);
   int y, m; date_of(MIN(S.turn, 35), &y, &m);
   digits3x5(bb, OX + 102 - (m >= 10 ? 4 : 2), 20, m, hex(0x333333));
   Traits t; compute_traits(&t);
@@ -106,14 +105,13 @@ void scene_room(void) {
 }
 
 void scene_future(void) {
-  const u16 *src = BG_ROOMS[4];
-  for (int i = 0; i < SCREEN_W * SCREEN_H; i++) bb[i] = src[i];
+  copy_full(bb, BG_ROOMS[4]);
   draw_rack();
   draw_books();
   gfx_present();
 }
 
 void scene_title(void) {
-  for (int i = 0; i < SCREEN_W * SCREEN_H; i++) bb[i] = BG_TITLE[i];
+  copy_full(bb, BG_TITLE);
   gfx_present();
 }

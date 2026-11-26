@@ -18,6 +18,11 @@
 #define WAVE_RAM        ((volatile u32 *)0x04000090)
 
 int sound_on = 1;
+#define REG_TM3CNT_L (*(volatile u16 *)0x0400010C)
+#define REG_TM3CNT_H (*(volatile u16 *)0x0400010E)
+#define TICKS_PER_FRAME 274          // 16384 / 59.73
+static u16 last_tm;
+static u32 frame_acc;
 
 // ---------- 음표 ----------
 // 웹판 js/sound.js와 같은 악보 (. = 이어서, - = 쉼표)
@@ -88,6 +93,10 @@ void sound_init(void) {
   for (int i = 0; i < 4; i++) WAVE_RAM[i] = TRI[i];
   REG_SOUND3CNT_L = 0x00;
   REG_SOUND1CNT_L = 0x0008;  // 스윕 없음
+  REG_TM3CNT_H = 0;
+  REG_TM3CNT_L = 0;
+  REG_TM3CNT_H = 0x0083;     // 켜기, 1024분주 (인터럽트 없음)
+  last_tm = REG_TM3CNT_L;
 }
 
 void bgm(int id) { want_bgm = id; }
@@ -185,15 +194,25 @@ static void sfx_update(void) {
   if (++sfx_frame >= b->frames) { sfx_frame = 0; sfx_pos++; if (sfx_pos >= sfx_len) { REG_SOUND2CNT_L = 0; REG_SOUND2CNT_H = 0x8000; } }
 }
 
+// 시간은 하드웨어 타이머(TM3, 16384Hz)로 잰다. 화면을 오래 그리느라 프레임을 건너뛰어도
+// 박자가 늘어지지 않고, 그리는 도중에도 불러서 음이 제때 나온다.
+
 void sound_update(void) {
+  u16 now = REG_TM3CNT_L;
+  u32 el = (u16)(now - last_tm);
+  if (el < 64) return;               // 너무 자주 부르면 그냥 돌아간다
+  last_tm = now;
+  if (el > TICKS_PER_FRAME * 30) el = TICKS_PER_FRAME * 30;   // 아주 오래 멈췄으면 따라잡지 않는다
   if (!sound_on) return;
   if (want_bgm != cur_bgm) start_bgm(want_bgm);
   if (cur_bgm != BGM_NONE && lead_len) {
-    // 8분음표 하나 = 1800/bpm 프레임
-    tick_acc += bpm;
-    if (tick_acc >= 1800) { tick_acc -= 1800; music_step(); }
+    // 8분음표 하나 = 1800/bpm 프레임 = 1800*274/bpm 틱
+    tick_acc += el * bpm;
+    int n = 0;
+    while (tick_acc >= 1800 * TICKS_PER_FRAME) { tick_acc -= 1800 * TICKS_PER_FRAME; if (n++ < 2) music_step(); }
   }
-  sfx_update();
+  frame_acc += el;
+  while (frame_acc >= TICKS_PER_FRAME) { frame_acc -= TICKS_PER_FRAME; sfx_update(); }
 }
 
 void sound_toggle(void) {
